@@ -11,3 +11,10 @@ inequalities-a-mathematical-olympiad-approach.pdf
 
 # Python cache from the corpus scripts
 __pycache__/
+
+# LaTeX build artifacts (the committed PDF is the output; .tex is the source)
+doc/*.aux
+doc/*.log
+doc/*.out
+doc/*.toc
+doc/*.synctex.gz

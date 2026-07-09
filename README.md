@@ -46,6 +46,12 @@ Rational → Monomial → Polynomial → { Ast, Pretty }
                                   → Checker → Prover → CLI
 ```
 
+For the full mathematics (SOS soundness, the Gram-matrix / semidefinite
+reformulation, exact rational `LDLᵀ` extraction, denominator clearing) and the
+system design, see the technical report:
+[doc/aeqb-design.pdf](doc/aeqb-design.pdf) (source
+[doc/aeqb-design.tex](doc/aeqb-design.tex); build with `tectonic doc/aeqb-design.tex`).
+
 ## What is implemented in this skeleton
 
 | Area | Status |
