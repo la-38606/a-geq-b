@@ -5,11 +5,15 @@
     it returns MUST still be validated by the trusted {!Checker} before the
     system claims [PROVED].
 
-    {b Implemented so far:} Stage B — an exact solver for degree-≤2 targets via
-    the Gram matrix and a rational LDLᵀ factorisation (see below).  Higher-degree
-    search (pairwise-difference patterns, general Gram / SDP) is still future
-    work; see CLAUDE.md, "Automatic prover stages".  This module also provides
-    the hand-written "hello world" example used by the [demo] command. *)
+    {b Implemented so far:} an exact SOS solver based on the Gram matrix and a
+    rational LDLᵀ factorisation (see below).  It tries a sequence of monomial
+    bases — the degree-2 basis [{1, x_i}], even-power / product substitution
+    bases, and the full degree-[d] basis for homogeneous targets — and resolves
+    an under-determined Gram (an SDP) by a bounded rational grid search over up
+    to two free entries.  Targets needing a wider multi-variable semidefinite
+    search are still future work; see CLAUDE.md, "Automatic prover stages".  This
+    module also provides the hand-written "hello world" example used by the
+    [demo] command. *)
 
 type result =
   | Proved of Certificate.t
