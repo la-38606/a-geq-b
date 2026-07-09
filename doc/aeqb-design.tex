@@ -45,6 +45,8 @@
 \newcommand{\transpose}{^{\!\top}}
 \DeclareMathOperator{\SOS}{SOS}
 \DeclareMathOperator{\coeff}{coeff}
+\DeclareMathOperator{\New}{New}
+\DeclareMathOperator{\conv}{conv}
 % \deg is already provided by LaTeX
 
 % --- code listing style -----------------------------------------------------
@@ -76,8 +78,9 @@ LCF tradition: an \emph{untrusted} search engine proposes certificates, and a
 small, \emph{trusted}, exact-rational \emph{checker} is the sole authority on
 whether an inequality is proved. This document develops the mathematics from
 first principles---nonnegativity, sum-of-squares certificates and their
-soundness, the Gram-matrix / semidefinite reformulation, and exact rational
-extraction via $LDL^{\top}$---and then describes the concrete system: exact
+soundness, the Gram-matrix / semidefinite reformulation, \emph{Newton-polytope
+basis reduction}, and exact rational extraction via $LDL^{\top}$---and then
+describes the concrete system: exact
 representations, the trusted checker, the prover, denominator clearing, the
 validation harness, and the road to a formally verified checker in Lean~4.
 \end{abstract}
@@ -115,6 +118,9 @@ engine may use any heuristic, numerical routine, or approximate solver; whatever
 it produces is re-verified, exactly, by a small checker. The program never
 reports \textsc{Proved} unless the checker accepts. Consequently a bug in the
 (complicated) search can only cause a \emph{missed} proof, never a false one.
+At the heart of the search is a \emph{Newton-polytope reduction} that fixes the
+monomial basis of the sum-of-squares problem canonically and minimally
+(Section~\ref{sec:newton}).
 Section~\ref{sec:foundations} develops the mathematics; Sections~%
 \ref{sec:representation}--\ref{sec:clearing} describe the system; Section~%
 \ref{sec:design} gives the architecture; and Section~\ref{sec:roadmap} sketches
@@ -313,9 +319,52 @@ equal,
 \end{equation}
 The solution set of \eqref{eq:match} is an affine subspace of symmetric
 matrices; finding a positive semidefinite point in it is precisely a
-\emph{semidefinite feasibility problem}. Two regimes arise, treated next.
+\emph{semidefinite feasibility problem}. Its size and difficulty are governed by
+the choice of basis $\z$, which the Newton polytope fixes canonically.
+
+\subsection{Choosing the basis: the Newton polytope}
+\label{sec:newton}
+
+Lemma~\ref{lem:gram} presupposes a basis $\z$, and the choice is consequential:
+a basis that is too small cannot represent the certificate at all, while one that
+is too large inflates the semidefinite program \eqref{eq:match} and introduces
+spurious degrees of freedom. The \emph{Newton polytope} determines the correct
+basis canonically.
+
+\begin{definition}[Newton polytope]
+For $p = \sum_{\alpha} c_\alpha \x^{\alpha}$ the \emph{Newton polytope} is the
+convex hull of the exponent vectors of its monomials,
+\[
+  \New(p) \;=\; \conv\{\, \alpha \in \N^n : c_\alpha \neq 0 \,\} \;\subseteq\; \R^n .
+\]
+\end{definition}
+
+\begin{theorem}[Reznick, 1978]\label{thm:reznick}
+If $p = \sum_i q_i^2$ is a sum of squares, then
+$\New(q_i) \subseteq \tfrac12 \New(p)$ for every $i$.
+\end{theorem}
+
+Thus every square in \emph{any} SOS decomposition of $p$ is supported on the
+lattice points of the half-polytope, and it suffices to take the monomial basis
+\begin{equation}\label{eq:newton-basis}
+  \z \;=\; \bigl\{\, \x^{\beta} : \beta \in \N^n,\ 2\beta \in \New(p) \,\bigr\}.
+\end{equation}
+By Theorem~\ref{thm:reznick} this basis is \emph{complete}---it contains a valid
+basis whenever $p$ is a sum of squares---and it is as small as that bound allows,
+which minimises the dimension of the Gram problem \eqref{eq:match}. It also
+specialises correctly: when $\deg p \le 2$, \eqref{eq:newton-basis} is exactly
+$\{1, x_1, \dots, x_n\}$, recovering the basis of Section~\ref{sec:deg2}.
+
+\begin{remark}[A cost-free necessary test]
+A vertex $\alpha$ of $\New(p)$ can be produced only by the square of the single
+basis monomial $\x^{\alpha/2}$---no cancellation is possible at an extreme
+point---so if $p$ is a sum of squares then \emph{every vertex of $\New(p)$ has
+even coordinates and positive coefficient}. This rejects many non-SOS inputs
+before any semidefinite computation is attempted.
+\end{remark}
 
 \subsection{Degree two: the unique Gram matrix}
+\label{sec:deg2}
 
 Take the basis $\z = (1, x_1, \dots, x_n)\transpose$. Every monomial of degree
 $\le 2$ is the product of \emph{exactly one} unordered pair of basis elements:
@@ -406,9 +455,13 @@ Then \eqref{eq:ldl} gives $D_1 = 1$, $L_{21} = -\tfrac12$, $D_2 = 1 - \tfrac14 =
 
 \subsection{Higher degree and the semidefinite regime}
 
-For $\deg p > 2$ one enlarges the basis $\z$ (for a homogeneous target of degree
-$2d$, the monomials of degree $d$; more economically, the ``square roots'' of the
-perfect-square monomials occurring in $p$). Two situations occur.
+For $\deg p > 2$ the basis is the Newton-polytope basis \eqref{eq:newton-basis}
+of Section~\ref{sec:newton}. (The present implementation uses computationally
+cheaper subsets---single-variable ``square roots'' of $p$'s perfect-square
+monomials and, for homogeneous targets, all degree-$d$ monomials---which are
+sound but can be incomplete; adopting the full Newton basis is part of the
+prover's planned form, Section~\ref{sec:roadmap}.) With the basis fixed, two
+situations occur.
 
 \paragraph{Unique Gram.} If every product monomial in \eqref{eq:match} arises
 from a single pair, $Q$ is again determined, and Theorem~\ref{thm:ldl} finishes
@@ -582,11 +635,15 @@ Four extensions complete the design; each preserves the checker as the sole
 authority.
 
 \begin{enumerate}[leftmargin=1.5em]
-  \item \textbf{Wide semidefinite prover.} Replace the bounded grid search by a
-    genuine SDP over the affine family \eqref{eq:match}: the exact core emits the
-    Gram program, a numerical solver (e.g.\ an interior-point method) returns an
-    approximate PSD $Q$, and the core rounds it to an exact rational PSD matrix
-    and re-verifies. This is the natural home for numerical code, cleanly
+  \item \textbf{Newton-polytope basis and a wide semidefinite prover.} Build the
+    monomial basis by the Newton-polytope reduction \eqref{eq:newton-basis} and
+    replace the bounded grid search by a genuine SDP over the affine family
+    \eqref{eq:match}: the exact core emits the Gram program, a numerical solver
+    (e.g.\ an interior-point method) returns an approximate PSD $Q$, and the core
+    recovers an exact certificate by \emph{Peyrl--Parrilo rounding}---projecting
+    the numerical Gram onto the affine subspace \eqref{eq:match}, which is
+    rational and remains PSD when the numerical solution is strictly
+    interior---before re-verifying. The numerical code is thus cleanly
     quarantined behind the trust boundary.
   \item \textbf{Constrained inequalities.} Admit side constraints
     ($a \ge 0$, $abc = 1$, triangle conditions) and search for
@@ -626,10 +683,15 @@ ecosystem, and a machine-checked proof of the kernel in a proof assistant.
     \emph{Inequalities} (1967), 205--224.
   \item M.~D.~Choi, T.~Y.~Lam. \emph{Extremal positive semidefinite forms.}
     Math.\ Ann.\ \textbf{231} (1977), 1--18.
+  \item B.~Reznick. \emph{Extremal PSD forms with few terms.} Duke Math.\ J.\
+    \textbf{45} (1978), 363--374.
   \item V.~Powers, T.~Wörmann. \emph{An algorithm for sums of squares of real
     polynomials.} J.\ Pure Appl.\ Algebra \textbf{127} (1998), 99--104.
   \item P.~A.~Parrilo. \emph{Semidefinite programming relaxations for
     semialgebraic problems.} Math.\ Program.\ \textbf{96} (2003), 293--320.
+  \item H.~Peyrl, P.~A.~Parrilo. \emph{Computing sum of squares decompositions
+    with rational coefficients.} Theoret.\ Comput.\ Sci.\ \textbf{409} (2008),
+    269--281.
   \item J.~B.~Lasserre. \emph{Global optimization with polynomials and the
     problem of moments.} SIAM J.\ Optim.\ \textbf{11} (2001), 796--817.
   \item R.~B.~Manfrino, J.~A.~G.~Ortega, R.~V.~Delgado. \emph{Inequalities: A
