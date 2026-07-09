@@ -75,9 +75,15 @@ def make_sampler(entry):
     nonneg = any(re.fullmatch(r"[a-z]\s*>=?\s*0", c.strip()) for c in cons)
     strict = any(re.fullmatch(r"[a-z]\s*>\s*0", c.strip()) for c in cons)
 
-    prod_eq = [c for c in cons if "=" in c and "*" in c and "^" not in c]
-    sphere_eq = [c for c in cons if "=" in c and "^2" in c]
-    sum_eq = [c for c in cons if "=" in c and "*" not in c and "^" not in c]
+    # A genuine equality constraint has "=" but not "<="/">=" (those are handled
+    # by rejection in `draw`, and orthant constraints like "a >= 0" must NOT be
+    # mistaken for a surface equation).
+    def is_eq(c):
+        return "=" in c and "<" not in c and ">" not in c
+
+    prod_eq = [c for c in cons if is_eq(c) and "*" in c and "^" not in c]
+    sphere_eq = [c for c in cons if is_eq(c) and "^2" in c]
+    sum_eq = [c for c in cons if is_eq(c) and "*" not in c and "^" not in c]
     tri = len(V) == 3 and any(re.search(r"[a-z]\s*\+\s*[a-z]\s*>\s*[a-z]", c) for c in cons)
 
     if prod_eq:  # e.g. a*b*c = 1  (positive reals)
