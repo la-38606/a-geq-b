@@ -5,3 +5,6 @@ _build/
 
 # OCaml / opam local switch
 _opam/
+
+# Copyrighted reference book (personal-use PDF; do not redistribute via the repo)
+inequalities-a-mathematical-olympiad-approach.pdf

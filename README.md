@@ -129,13 +129,14 @@ semidefinite search still report `NO_CERT_FOUND` — which is *not* a disproof.
 
 ## Test corpus
 
-[`corpus/`](corpus/) holds **110 inequalities** for exercising the checker and
+[`corpus/`](corpus/) holds **119 inequalities** for exercising the checker and
 the prover — classic AM–GM / Cauchy–Schwarz / Schur forms, olympiad problems
-(IMO 1964/1984/1995/2000, APMO 2004, Iran 1996, Japan 1997, Nesbitt), rational
-inequalities (denominators cleared), and soundness traps (Motzkin / Choi–Lam
-non-SOS forms and deliberately false claims). Each is tagged by category and by
-the status v1 should return. The 58 sum-of-squares certificates are
-machine-verified by the checker (`python3 corpus/verify.py`); all 110 are
+(IMO 1964/1984/1995/1999/2000, APMO 2004, Iran 1996, Japan 1997, and problems
+from Manfrino–Ortega–Delgado, *Inequalities: A Mathematical Olympiad Approach*),
+rational inequalities (denominators cleared), and soundness traps (Motzkin /
+Choi–Lam non-SOS forms and deliberately false claims). Each is tagged by
+category and by the status v1 should return. The 60 sum-of-squares certificates
+are machine-verified by the checker (`python3 corpus/verify.py`); all 119 are
 numerically sanity-checked on their domains (`python3 corpus/sanity_sample.py`).
 See [corpus/README.md](corpus/README.md).
 
