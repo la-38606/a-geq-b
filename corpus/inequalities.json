@@ -1313,6 +1313,107 @@
       "domain": "nonnegative reals",
       "constraints": ["a >= 0", "b >= 0", "c >= 0"],
       "source": "well-known (nonnegative a, b, c)"
+    },
+    {
+      "id": "imo-1999-n2",
+      "claim": "1/8*(x+y)^4 >= x*y*(x^2 + y^2)",
+      "variables": ["x", "y"],
+      "degree": 4,
+      "category": "in_scope_sos",
+      "expected": "PROVED",
+      "domain": "all reals",
+      "source": "Manfrino et al., 'Inequalities' Problem 3.45 (IMO 1999), two-variable case",
+      "sos": [{"coeff": "1/8", "poly": "(x - y)^2"}],
+      "notes": "1/8(x+y)^4 - xy(x^2+y^2) = 1/8 (x-y)^4."
+    },
+    {
+      "id": "czech-slovak-1999",
+      "claim": "a/(b + 2*c) + b/(c + 2*a) + c/(a + 2*b) >= 1",
+      "variables": ["a", "b", "c"],
+      "form": "rational",
+      "category": "out_of_scope_v1",
+      "expected": "NO_CERT_FOUND",
+      "domain": "positive reals",
+      "constraints": ["a > 0", "b > 0", "c > 0"],
+      "source": "Manfrino et al., 'Inequalities' Problem 3.30 (Czech and Slovak Republics, 1999)"
+    },
+    {
+      "id": "ireland-1999",
+      "claim": "a^2/(a + b) + b^2/(b + c) + c^2/(c + d) + d^2/(d + a) >= 1/2",
+      "variables": ["a", "b", "c", "d"],
+      "form": "rational",
+      "category": "out_of_scope_v1",
+      "expected": "NO_CERT_FOUND",
+      "domain": "positive reals with a + b + c + d = 1",
+      "constraints": ["a + b + c + d = 1", "a > 0", "b > 0", "c > 0", "d > 0"],
+      "source": "Manfrino et al., 'Inequalities' Problem 3.31 (Ireland, 1999)"
+    },
+    {
+      "id": "romania-1999",
+      "claim": "a + b + c <= a^3 + b^3 + c^3",
+      "variables": ["a", "b", "c"],
+      "degree": 3,
+      "category": "out_of_scope_v1",
+      "expected": "NO_CERT_FOUND",
+      "domain": "positive reals with ab + bc + ca <= 3abc",
+      "constraints": ["a*b + b*c + c*a <= 3*a*b*c", "a > 0", "b > 0", "c > 0"],
+      "source": "Manfrino et al., 'Inequalities' Problem 3.34 (Romania, 1999)"
+    },
+    {
+      "id": "turkey-1999",
+      "claim": "(a + 3*b)*(b + 4*c)*(c + 2*a) >= 60*a*b*c",
+      "variables": ["a", "b", "c"],
+      "degree": 3,
+      "category": "out_of_scope_v1",
+      "expected": "NO_CERT_FOUND",
+      "domain": "0 <= a <= b <= c",
+      "constraints": ["a >= 0", "b >= a", "c >= b"],
+      "source": "Manfrino et al., 'Inequalities' Problem 3.41 (Turkey, 1999)"
+    },
+    {
+      "id": "united-kingdom-1999",
+      "claim": "7*(a*b + b*c + c*a) <= 2 + 9*a*b*c",
+      "variables": ["a", "b", "c"],
+      "degree": 3,
+      "category": "out_of_scope_v1",
+      "expected": "NO_CERT_FOUND",
+      "domain": "a + b + c = 1, nonnegative",
+      "constraints": ["a + b + c = 1", "a >= 0", "b >= 0", "c >= 0"],
+      "source": "Manfrino et al., 'Inequalities' Problem 3.42 (United Kingdom, 1999)"
+    },
+    {
+      "id": "austria-poland-2000",
+      "claim": "(1 - x^2)^2 + (1 - y^2)^2 + (1 - z^2)^2 >= 2",
+      "variables": ["x", "y", "z"],
+      "degree": 4,
+      "category": "out_of_scope_v1",
+      "expected": "NO_CERT_FOUND",
+      "domain": "x + y + z = 1, nonnegative",
+      "constraints": ["x + y + z = 1", "x >= 0", "y >= 0", "z >= 0"],
+      "source": "Manfrino et al., 'Inequalities' Problem 3.49 (Austria-Poland, 2000), lower bound"
+    },
+    {
+      "id": "brazil-2001",
+      "claim": "(a + b)^2*(a + c)^2 >= 4*a*b*c*(a + b + c)",
+      "variables": ["a", "b", "c"],
+      "degree": 4,
+      "category": "in_scope_sos",
+      "expected": "PROVED",
+      "domain": "all reals",
+      "source": "Manfrino et al., 'Inequalities' Problem 3.52 (Brazil, 2001), squared form of (a+b)(a+c) >= 2 sqrt(abc(a+b+c))",
+      "sos": [{"coeff": "1", "poly": "a^2 + a*b + a*c - b*c"}],
+      "notes": "Stated for positive reals, but holds for ALL reals: the difference is the perfect square (a^2+ab+ac-bc)^2. Found by the prover; the corpus soundness gate flagged the original positive-only classification."
+    },
+    {
+      "id": "belarus-1999",
+      "claim": "1/(1 + a*b) + 1/(1 + b*c) + 1/(1 + c*a) >= 3/2",
+      "variables": ["a", "b", "c"],
+      "form": "rational",
+      "category": "out_of_scope_v1",
+      "expected": "NO_CERT_FOUND",
+      "domain": "positive reals with a^2 + b^2 + c^2 = 3",
+      "constraints": ["a^2 + b^2 + c^2 = 3", "a > 0", "b > 0", "c > 0"],
+      "source": "Manfrino et al., 'Inequalities' Problem 3.29 (Belarus, 1999)"
     }
   ]
 }
