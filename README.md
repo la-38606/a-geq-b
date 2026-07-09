@@ -122,6 +122,17 @@ search engine is not built yet (Milestone 5), so it currently reports
 certificate and runs the trusted checker. Statuses: `PROVED` (0),
 `NO_CERT_FOUND` (2), `INVALID_INPUT` (3), `CHECK_FAILED` (4).
 
+## Test corpus
+
+[`corpus/`](corpus/) holds **100 polynomial inequalities** for exercising the
+checker and (later) the prover — classic AM–GM / Cauchy–Schwarz / Schur forms,
+olympiad problems (IMO 1964/1984, APMO 2004, Nesbitt), and soundness traps
+(Motzkin / Choi–Lam non-SOS forms, and deliberately false claims). Each is
+tagged by category and by the status v1 should return. The 55 sum-of-squares
+certificates are machine-verified by the checker (`python3 corpus/verify.py`);
+all 100 are numerically sanity-checked on their domains
+(`python3 corpus/sanity_sample.py`). See [corpus/README.md](corpus/README.md).
+
 ## Deliberately not implemented yet
 
 Per the implementation brief, these are **stretch goals, not foundations**, and

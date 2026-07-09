@@ -1,7 +1,18 @@
 # A≥B inequality corpus
 
-A curated set of polynomial inequalities for testing the A≥B prover and checker.
-The single source of truth is [`inequalities.json`](inequalities.json).
+A curated set of **100** polynomial inequalities for testing the A≥B prover and
+checker. The single source of truth is [`inequalities.json`](inequalities.json).
+
+| category | count | v1 `expected` |
+| --- | --- | --- |
+| `in_scope_sos` | 58 (55 with certificates) | `PROVED` |
+| `out_of_scope_v1` | 36 | `NO_CERT_FOUND` |
+| `not_sos` | 3 | `NO_CERT_FOUND` |
+| `false` | 3 | `NO_CERT_FOUND` |
+
+Degrees range from 1 to 8, in 1–8 variables. Two verification passes keep it
+honest: `verify.py` *proves* the 55 certified entries exactly with the trusted
+checker, and `sanity_sample.py` *numerically samples* all 100 on their domains.
 
 ## Why a corpus
 
@@ -55,15 +66,24 @@ Because the checker's JSON loader ignores unknown fields, any entry with an
 nonnegative) statements; they are simply outside what an SOS-over-ℝ engine can
 prove. They are kept as aspirational targets and as soundness tests.
 
-## Running the verifier
+## Running the checks
 
 ```
 dune build
-python3 corpus/verify.py
+python3 corpus/verify.py         # exact: run every SOS certificate through `a-geq-b check`
+python3 corpus/sanity_sample.py  # numeric: sample every entry on its domain
 ```
 
-It reports the entry counts by category and verifies every certificate. Exit
-code is non-zero if any certificate fails to check or any claim fails to parse.
+- `verify.py` projects each certified entry to `{claim, variables, sos}`, runs
+  the trusted `a-geq-b check`, and asserts the expected status. A pass is a
+  machine proof over all reals. It also checks the schema and that every claim
+  parses.
+- `sanity_sample.py` covers what the SOS checker cannot: it evaluates each claim
+  at thousands of random points drawn from its domain (nonnegative / positive
+  orthant, `sum = k`, `abc = 1`, sphere, triangle sides, …), asserting the
+  inequality holds — and, for `false` entries, that a counterexample exists.
+
+Both exit non-zero on any discrepancy. Every entry currently passes both.
 
 ## Sources
 
