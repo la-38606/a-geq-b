@@ -41,24 +41,55 @@ let support (m : Monomial.t) : (int * int) list =
 
 let half = Rational.of_ints 1 2
 
-(* Build the (n+1)x(n+1) Gram matrix Q with z^T Q z = p (deg p <= 2). *)
-let gram_matrix (p : Polynomial.t) (n : int) : Rational.t array array =
-  let m = n + 1 in
-  let q = Array.make_matrix m m Rational.zero in
-  let add i j v = q.(i).(j) <- Rational.add q.(i).(j) v in
-  List.iter
-    (fun (mono, c) ->
-      match support mono with
-      | [] -> add 0 0 c
-      | [ (i, 1) ] -> let h = Rational.mul half c in add 0 (i + 1) h; add (i + 1) 0 h
-      | [ (i, 2) ] -> add (i + 1) (i + 1) c
-      | [ (i, 1); (j, 1) ] ->
-          let h = Rational.mul half c in
-          add (i + 1) (j + 1) h;
-          add (j + 1) (i + 1) h
-      | _ -> raise Not_psd (* a degree>2 monomial; guarded by the caller *))
-    (Polynomial.to_list p);
-  q
+(* Build the Gram matrix Q with z^T Q z = p over a chosen monomial basis
+   z = [basis.(0); ...; basis.(r-1)], returning [None] if p cannot be written
+   uniquely this way. The entry Q[i][j] is forced by the coefficient in p of the
+   product monomial basis.(i) * basis.(j):
+
+   - if two different index pairs produce the SAME monomial, the Gram is not
+     uniquely determined (an SDP would be needed) -> [None];
+   - if some monomial of p is not a product of two basis elements, p is not
+     representable in this basis -> [None].
+
+   When it succeeds the returned matrix is exact and satisfies z^T Q z = p
+   identically (later re-checked by the trusted checker anyway). *)
+let gram_of_basis (p : Polynomial.t) (basis : Monomial.t array) : Rational.t array array option =
+  let r = Array.length basis in
+  if r = 0 then None
+  else begin
+    (* product monomial -> the unique (i, j) pair that makes it *)
+    let pair_of : (Monomial.t, int * int) Hashtbl.t = Hashtbl.create 64 in
+    let collision = ref false in
+    (try
+       for i = 0 to r - 1 do
+         for j = i to r - 1 do
+           let pm = Monomial.mul basis.(i) basis.(j) in
+           if Hashtbl.mem pair_of pm then (collision := true; raise Exit)
+           else Hashtbl.add pair_of pm (i, j)
+         done
+       done
+     with Exit -> ());
+    let representable =
+      (not !collision)
+      && List.for_all (fun (mono, _) -> Hashtbl.mem pair_of mono) (Polynomial.to_list p)
+    in
+    if not representable then None
+    else begin
+      let q = Array.make_matrix r r Rational.zero in
+      Hashtbl.iter
+        (fun pm (i, j) ->
+          let c = Polynomial.coeff pm p in
+          if not (Rational.is_zero c) then
+            if i = j then q.(i).(i) <- c
+            else begin
+              let h = Rational.mul half c in
+              q.(i).(j) <- h;
+              q.(j).(i) <- h
+            end)
+        pair_of;
+      Some q
+    end
+  end
 
 (* Rational LDL^T of a symmetric matrix. Returns [(l, d)] with unit
    lower-triangular [l] and diagonal [d] such that q = l * diag(d) * l^T.
@@ -90,13 +121,10 @@ let ldlt (q : Rational.t array array) : Rational.t array array * Rational.t arra
   done;
   (l, d)
 
-(* Basis polynomial z_k: z_0 = 1, z_k = x_{k-1}. *)
-let basis_poly (k : int) : Polynomial.t =
-  if k = 0 then Polynomial.one else Polynomial.var (k - 1)
-
-(* Certificate from an LDL^T factorisation: column k contributes the term
-   D_k * (sum_{j>=k} L[j][k] z_j)^2, kept only when D_k > 0. *)
-let certificate_of_ldlt (l : Rational.t array array) (d : Rational.t array) : Certificate.t =
+(* Certificate from an LDL^T factorisation over [basis]: column k contributes
+   the term D_k * (sum_{j>=k} L[j][k] * basis.(j))^2, kept only when D_k > 0. *)
+let certificate_of_ldlt (basis : Monomial.t array) (l : Rational.t array array)
+    (d : Rational.t array) : Certificate.t =
   let m = Array.length d in
   let terms = ref [] in
   for k = m - 1 downto 0 do
@@ -104,29 +132,64 @@ let certificate_of_ldlt (l : Rational.t array array) (d : Rational.t array) : Ce
       let qk = ref Polynomial.zero in
       for j = k to m - 1 do
         if not (Rational.is_zero l.(j).(k)) then
-          qk := Polynomial.add !qk (Polynomial.scalar_mul l.(j).(k) (basis_poly j))
+          qk :=
+            Polynomial.add !qk
+              (Polynomial.scalar_mul l.(j).(k) (Polynomial.monomial basis.(j) Rational.one))
       done;
       terms := Certificate.term d.(k) !qk :: !terms
     end
   done;
   Certificate.make !terms
 
-(* Attempt an SOS certificate for a degree-<=2 target; [None] if not applicable
-   (degree > 2) or if the Gram matrix is not PSD. *)
-let prove_quadratic (p : Polynomial.t) : Certificate.t option =
-  if Polynomial.degree p > 2 then None
-  else
-    match ldlt (gram_matrix p (Polynomial.num_vars p)) with
-    | l, d -> Some (certificate_of_ldlt l d)
-    | exception Not_psd -> None
+(* Try to prove p >= 0 using SOS over a specific monomial basis. *)
+let prove_with_basis (p : Polynomial.t) (basis : Monomial.t array) : Certificate.t option =
+  match gram_of_basis p basis with
+  | None -> None
+  | Some q -> (
+      match ldlt q with
+      | l, d -> Some (certificate_of_ldlt basis l d)
+      | exception Not_psd -> None)
 
-(** Attempt to find an SOS certificate for [p >= 0].  Currently runs Stage B
-    (degree <= 2).  Any candidate is re-checked by the trusted {!Checker}, so a
-    bug in the search can only cause a missed proof, never a false one. *)
+(* Candidate bases, tried in order of increasing generality. *)
+
+(* Stage B: {1, x_0, ..., x_{n-1}} -- proves every degree-<=2 SOS target. *)
+let quadratic_basis (p : Polynomial.t) : Monomial.t array =
+  let n = Polynomial.num_vars p in
+  Array.of_list (Monomial.one :: List.init n (fun i -> Monomial.var i))
+
+(* Square-root monomials of the perfect-square monomials of p (those with all
+   even exponents). With [~pure], keep only single-variable roots (x_i^k); this
+   avoids spurious cross generators for pure even-power problems like
+   a^4+b^4 >= 2a^2b^2. Without it, all roots are used (e.g. {ab, bc, ca} for
+   sum a^2b^2 >= abc*sum a). *)
+let square_root_basis ?(pure = false) (p : Polynomial.t) : Monomial.t array =
+  let roots =
+    List.filter_map
+      (fun (mono, _) ->
+        if List.for_all (fun e -> e mod 2 = 0) mono then
+          let nu = Monomial.canonical (List.map (fun e -> e / 2) mono) in
+          if pure && List.length (support nu) > 1 then None else Some nu
+        else None)
+      (Polynomial.to_list p)
+  in
+  Array.of_list (List.sort_uniq Monomial.compare roots)
+
+(** Attempt to find an SOS certificate for [p >= 0]. Tries a sequence of
+    monomial bases (degree-2 Gram, then even-power substitution bases); each
+    candidate is re-checked by the trusted {!Checker}, so a bug in the search
+    can only cause a missed proof, never a false one. *)
 let prove (p : Polynomial.t) : result =
-  match prove_quadratic p with
-  | Some cert when Checker.check_sos p cert -> Proved cert
-  | _ -> No_certificate_found
+  let bases =
+    [ quadratic_basis p; square_root_basis ~pure:true p; square_root_basis ~pure:false p ]
+  in
+  let rec go = function
+    | [] -> No_certificate_found
+    | basis :: rest -> (
+        match prove_with_basis p basis with
+        | Some cert when Checker.check_sos p cert -> Proved cert
+        | _ -> go rest)
+  in
+  go bases
 
 (* ---------------------------------------------------------------------- *)
 (* Built-in "hello world" example:                                         *)
