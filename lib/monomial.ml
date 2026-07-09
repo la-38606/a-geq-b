@@ -25,14 +25,14 @@ type t = int list
 let rec drop_leading_zeros = function
   | 0 :: rest -> drop_leading_zeros rest
   | l -> l
+;;
 
 (** Put an arbitrary exponent vector into canonical form (validate
     nonnegativity, drop trailing zeros). *)
 let canonical (m : t) : t =
-  List.iter
-    (fun e -> if e < 0 then invalid_arg "Monomial: negative exponent")
-    m;
+  List.iter (fun e -> if e < 0 then invalid_arg "Monomial: negative exponent") m;
   List.rev (drop_leading_zeros (List.rev m))
+;;
 
 (** The constant monomial [1]. *)
 let one : t = []
@@ -41,6 +41,7 @@ let one : t = []
 let var (i : int) : t =
   if i < 0 then invalid_arg "Monomial.var: negative index";
   List.init (i + 1) (fun j -> if j = i then 1 else 0)
+;;
 
 let is_constant (m : t) : bool = m = []
 
@@ -59,6 +60,7 @@ let mul (a : t) (b : t) : t =
   (* Both inputs are assumed canonical, so their sum has no trailing zeros;
      [canonical] is applied anyway to stay robust against hand-built inputs. *)
   canonical (go a b)
+;;
 
 (** Total order on monomials: lexicographic on exponent vectors, treating a
     missing tail as zeros (so it is consistent regardless of length).  This is
@@ -68,10 +70,17 @@ let compare (a : t) (b : t) : int =
   let rec go a b =
     match a, b with
     | [], [] -> 0
-    | [], y :: ys -> let c = Int.compare 0 y in if c <> 0 then c else go [] ys
-    | x :: xs, [] -> let c = Int.compare x 0 in if c <> 0 then c else go xs []
-    | x :: xs, y :: ys -> let c = Int.compare x y in if c <> 0 then c else go xs ys
+    | [], y :: ys ->
+      let c = Int.compare 0 y in
+      if c <> 0 then c else go [] ys
+    | x :: xs, [] ->
+      let c = Int.compare x 0 in
+      if c <> 0 then c else go xs []
+    | x :: xs, y :: ys ->
+      let c = Int.compare x y in
+      if c <> 0 then c else go xs ys
   in
   go a b
+;;
 
 let equal (a : t) (b : t) : bool = compare a b = 0

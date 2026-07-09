@@ -8,22 +8,26 @@
     dependency on {!Polynomial}, keeping "syntax" and "algebra" separate. *)
 
 type expr =
-  | Const of Rational.t          (** a rational literal, e.g. [3] or [1/2] *)
-  | Var of string                (** a variable, e.g. ["a"], ["x1"] *)
-  | Neg of expr                  (** unary minus *)
+  | Const of Rational.t (** a rational literal, e.g. [3] or [1/2] *)
+  | Var of string (** a variable, e.g. ["a"], ["x1"] *)
+  | Neg of expr (** unary minus *)
   | Add of expr * expr
   | Sub of expr * expr
   | Mul of expr * expr
-  | Div of expr * expr           (** division; cleared of denominators by the normalizer *)
-  | Pow of expr * int            (** power with a nonnegative integer exponent *)
+  | Div of expr * expr (** division; cleared of denominators by the normalizer *)
+  | Pow of expr * int (** power with a nonnegative integer exponent *)
 
 (** Relational operator of a claim. *)
 type relop =
-  | Ge  (** [>=] *)
-  | Le  (** [<=] *)
+  | Ge (** [>=] *)
+  | Le (** [<=] *)
 
 (** A claim [lhs op rhs], e.g. [a^2 + b^2 >= 2*a*b]. *)
-type claim = { lhs : expr; op : relop; rhs : expr }
+type claim =
+  { lhs : expr
+  ; op : relop
+  ; rhs : expr
+  }
 
 (* --- small convenience constructors ------------------------------------- *)
 

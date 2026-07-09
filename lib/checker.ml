@@ -18,33 +18,39 @@
 (** Why a certificate was rejected. *)
 type failure =
   | Negative_coefficient of Rational.t
-      (** some [c_i] was negative, so [c_i * q_i^2] is not guaranteed [>= 0] *)
-  | Mismatch of { target : Polynomial.t; got : Polynomial.t }
-      (** all coefficients were fine, but [sum c_i q_i^2] did not equal [p] *)
+  (** some [c_i] was negative, so [c_i * q_i^2] is not guaranteed [>= 0] *)
+  | Mismatch of
+      { target : Polynomial.t
+      ; got : Polynomial.t
+      } (** all coefficients were fine, but [sum c_i q_i^2] did not equal [p] *)
 
-type outcome = Verified | Rejected of failure
+type outcome =
+  | Verified
+  | Rejected of failure
 
 (** The polynomial [sum_i c_i * q_i^2] denoted by a certificate. *)
 let expand (cert : Certificate.t) : Polynomial.t =
   cert
   |> List.map (fun (t : Certificate.term) ->
-         Polynomial.scalar_mul t.coeff (Polynomial.mul t.poly t.poly))
+    Polynomial.scalar_mul t.coeff (Polynomial.mul t.poly t.poly))
   |> Polynomial.sum
+;;
 
 (** Full check, returning a reason on rejection. *)
 let check (target : Polynomial.t) (cert : Certificate.t) : outcome =
   match
-    List.find_opt
-      (fun (t : Certificate.term) -> not (Rational.is_nonneg t.coeff))
-      cert
+    List.find_opt (fun (t : Certificate.term) -> not (Rational.is_nonneg t.coeff)) cert
   with
   | Some t -> Rejected (Negative_coefficient t.coeff)
   | None ->
-      let got = expand cert in
-      if Polynomial.equal target got then Verified
-      else Rejected (Mismatch { target; got })
+    let got = expand cert in
+    if Polynomial.equal target got then Verified else Rejected (Mismatch { target; got })
+;;
 
 (** Boolean form of {!check}: [true] iff the certificate proves [target >= 0].
     This is the predicate the CLI must consult before printing [PROVED]. *)
 let check_sos (target : Polynomial.t) (cert : Certificate.t) : bool =
-  match check target cert with Verified -> true | Rejected _ -> false
+  match check target cert with
+  | Verified -> true
+  | Rejected _ -> false
+;;
