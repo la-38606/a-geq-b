@@ -59,7 +59,7 @@ Rational → Monomial → Polynomial → { Ast, Pretty }
 | `Pretty` — readable + LaTeX rendering of polynomials/certificates | ✅ done |
 | `Certificate` — SOS term data, rendering, JSON read + write | ✅ done |
 | `Checker` — `check_sos : poly → certificate → bool`, exact | ✅ done (trusted core) |
-| `Prover` — SOS search | 🚧 stub (returns `No_certificate_found`) + hardcoded demo |
+| `Prover` — SOS search (Gram + rational LDLᵀ over a monomial basis) | 🚧 proves degree-≤2 and even-power forms (45/58 corpus); SDP case pending |
 | CLI — `--help`, `demo`, `prove`, `check` | ✅ done |
 | Tests — `test_polynomial`, `test_parser`, `test_checker` | ✅ 35 cases |
 
@@ -116,8 +116,11 @@ dune exec a-geq-b -- prove "a^2 + b^2 >= 2*a*b"             # -> NO_CERT_FOUND (
 dune exec a-geq-b -- --help
 ```
 
-`prove` parses the inequality and reduces it to `p ≥ 0`, but the automatic
-search engine is not built yet (Milestone 5), so it currently reports
+`prove` parses the inequality, reduces it to `p ≥ 0`, and runs the automatic
+prover (Gram matrix + exact rational LDLᵀ over a monomial basis). It proves
+degree-≤2 targets and even-power / product SOS forms — e.g. `a^2+b^2 >= 2*a*b`
+now prints `PROVED` with the certificate `(a-b)^2`, found automatically. Targets
+whose Gram matrix is not uniquely determined (an SDP) still report
 `NO_CERT_FOUND` — which is *not* a disproof. `check` is fully wired: it loads a
 certificate and runs the trusted checker. Statuses: `PROVED` (0),
 `NO_CERT_FOUND` (2), `INVALID_INPUT` (3), `CHECK_FAILED` (4).
@@ -138,11 +141,10 @@ all 100 are numerically sanity-checked on their domains
 Per the implementation brief, these are **stretch goals, not foundations**, and
 are intentionally left for later prompts:
 
-- the **automatic prover** — quadratic-form / Gram-matrix SOS search,
-  pairwise-difference patterns (Milestone 5). `Prover.prove` is still a stub, so
-  `prove` reports `NO_CERT_FOUND`;
-- **SDP** integration, **Coq/Lean** extraction, a **web frontend**, and any
-  olympiad corpus study.
+- the **rest of the automatic prover** — the remaining ~13 in-scope corpus
+  targets need a monomial basis whose Gram matrix is not uniquely determined
+  (an SDP feasibility problem); that stage is not built yet;
+- **SDP** integration, **Coq/Lean** extraction, and a **web frontend**.
 
 See [`CLAUDE.md`](CLAUDE.md) for the working rules and the next implementation
 step.

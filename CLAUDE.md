@@ -84,24 +84,27 @@ installing zarith).
 - **Milestone 2** (parser, normalizer, JSON read/write, `prove`/`check` CLI with
   the four statuses) — ✅ done.
 - **Milestones 3–4** (checker, pretty/LaTeX proof printer) — ✅ done.
+- **Milestone 5** (automatic prover) — 🚧 in progress. `Prover.prove` now
+  proves via a Gram matrix + exact rational LDLᵀ over a chosen monomial basis:
+  - degree-≤2 targets (basis `{1, x_i}` — the unique Gram);
+  - even-power / product forms via monomial-substitution bases (single-variable
+    roots, then all square-root monomials), when the Gram is uniquely
+    determined.
+  It proves **45 of the 58** `in_scope_sos` corpus targets and is sound over all
+  100 (`python3 corpus/run_prover.py`). Every candidate is re-checked by the
+  trusted checker, so the search cannot produce a false `PROVED`.
 
 ## Next implementation step
 
-**Milestone 5 — the automatic prover.** `Prover.prove` is still a stub returning
-`No_certificate_found`; implement real SOS search, in stages, and route every
-candidate through `Checker.check_sos` before the CLI prints `PROVED`:
+**Finish Milestone 5 — the non-unique-Gram (SDP) case.** The remaining ~13
+in-scope targets (e.g. `(a-b)^4`, `a^4+b^4+c^4+d^4 >= 4abcd`, the cyclic quartics
+`a^4+b^4 >= a^3b+ab^3`, `a^6+b^6+c^6 >= 3a^2b^2c^2`) need a monomial basis where
+the Gram matrix is NOT uniquely determined — there is an affine family of valid
+`Q`, and we must find a PSD member. Options, cheapest first:
 
-- **Stage B — quadratic forms.** For a homogeneous degree-2 target, build the
-  symmetric matrix `A` with `p = xᵀAx`; if `A` is PSD and rationally
-  decomposable (e.g. rational LDLᵀ / Cholesky), emit the SOS certificate.
-  Targets: `a^2+b^2 >= 2ab`, `x^2+y^2+z^2 >= xy+yz+zx`, `2x^2+2y^2 >= (x+y)^2`.
-- **Stage C — pairwise differences.** For `a,b,c`, search certificates built
-  from `a-b, b-c, c-a` and simple monomial multiples (helps symmetric
-  inequalities tight at `a=b=c`).
-- **Stage D — Gram/SDP.** Monomial basis `z`, symbolic `zᵀQz`, match
-  coefficients to constrain `Q`, call an external SDP solver, round to rationals,
-  and re-verify with the checker. Numerical code stays untrusted.
+- solve the Gram linear system for the free parameters, then a bounded search /
+  diagonalisation heuristic to land on a PSD `Q` (rational, exact);
+- a proper rational SDP feasibility (round a numerical solution, re-verify).
 
-Exit condition (brief, Milestone 5): at least 10 textbook inequalities prove
-automatically, and unsupported ones return `NO_CERT_FOUND`, never `PROVED`. Add
-`test/test_prover.ml`. SDP/Coq/frontend remain last.
+Keep the checker as the sole authority. Then optionally **Stage C** (targeted
+pairwise-difference templates for symmetric inequalities). SDP/Coq/frontend last.
