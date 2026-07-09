@@ -54,7 +54,7 @@ let var (i : int) : t = M.singleton (Monomial.var i) Rational.one
 
 (** [monomial m c] is the single-term polynomial [c * m]. *)
 let monomial (m : Monomial.t) (c : Rational.t) : t =
-  if Rational.is_zero c then zero else M.singleton (Monomial.canonical m) c
+  if Rational.is_zero c then zero else M.singleton m c
 ;;
 
 (* --- queries ------------------------------------------------------------ *)
@@ -63,7 +63,7 @@ let is_zero (p : t) : bool = M.is_empty p
 
 (** Coefficient of monomial [m] in [p] (zero if absent). *)
 let coeff (m : Monomial.t) (p : t) : Rational.t =
-  match M.find_opt (Monomial.canonical m) p with
+  match M.find_opt m p with
   | Some c -> c
   | None -> Rational.zero
 ;;
@@ -73,7 +73,9 @@ let degree (p : t) : int = M.fold (fun m _ acc -> max acc (Monomial.degree m)) p
 
 (** Number of variables actually mentioned (index of the highest-used variable
     plus one); 0 for a constant. *)
-let num_vars (p : t) : int = M.fold (fun m _ acc -> max acc (List.length m)) p 0
+let num_vars (p : t) : int =
+  M.fold (fun m _ acc -> max acc (List.length (Monomial.exponents m))) p 0
+;;
 
 (** Terms as an association list, sorted by {!Monomial.compare}. *)
 let to_list (p : t) : (Monomial.t * Rational.t) list = M.bindings p
@@ -126,11 +128,7 @@ let sum (ps : t list) : t = List.fold_left add zero ps
     canonicalise every key and drop zero coefficients.  For values produced by
     the constructors above this is the identity. *)
 let normalize (p : t) : t =
-  M.fold
-    (fun m c acc ->
-       if Rational.is_zero c then acc else add_coeff (Monomial.canonical m) c acc)
-    p
-    zero
+  M.fold (fun m c acc -> if Rational.is_zero c then acc else add_coeff m c acc) p zero
 ;;
 
 (** Equality of canonical normal forms.  Independent of how each polynomial was

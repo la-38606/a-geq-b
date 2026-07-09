@@ -31,7 +31,7 @@ let string_of_monomial (vars : vars) (m : Monomial.t) : string =
        else if e = 1
        then Some (name_of vars i)
        else Some (Printf.sprintf "%s^%d" (name_of vars i) e))
-    m
+    (Monomial.exponents m)
   |> List.filter_map Fun.id
   |> String.concat "*"
 ;;
@@ -73,7 +73,7 @@ let latex_of_monomial (vars : vars) (m : Monomial.t) : string =
        else if e = 1
        then Some (name_of vars i)
        else Some (Printf.sprintf "%s^{%d}" (name_of vars i) e))
-    m
+    (Monomial.exponents m)
   |> List.filter_map Fun.id
   |> String.concat ""
 ;;

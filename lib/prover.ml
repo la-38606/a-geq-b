@@ -41,10 +41,8 @@ exception Not_psd
 
 (* Nonzero (variable index, exponent) pairs of a monomial, in index order. *)
 let support (m : Monomial.t) : (int * int) list =
-  List.mapi (fun i e -> i, e) m |> List.filter (fun (_, e) -> e <> 0)
+  List.mapi (fun i e -> i, e) (Monomial.exponents m) |> List.filter (fun (_, e) -> e <> 0)
 ;;
-
-let half = Rational.of_ints 1 2
 
 (* Candidate Gram matrices Q with z^T Q z = p over a chosen monomial basis
    z = [basis.(0); ...; basis.(r-1)].
@@ -244,9 +242,10 @@ let square_root_basis ?(pure = false) (p : Polynomial.t) : Monomial.t array =
   let roots =
     List.filter_map
       (fun (mono, _) ->
-         if List.for_all (fun e -> e mod 2 = 0) mono
+         let es = Monomial.exponents mono in
+         if List.for_all (fun e -> e mod 2 = 0) es
          then (
-           let nu = Monomial.canonical (List.map (fun e -> e / 2) mono) in
+           let nu = Monomial.canonical (List.map (fun e -> e / 2) es) in
            if pure && List.length (support nu) > 1 then None else Some nu)
          else None)
       (Polynomial.to_list p)
@@ -266,7 +265,8 @@ let is_homogeneous (p : Polynomial.t) : bool =
 let max_exponents (p : Polynomial.t) (n : int) : int array =
   let mx = Array.make (max n 1) 0 in
   List.iter
-    (fun (m, _) -> List.iteri (fun i e -> if e > mx.(i) then mx.(i) <- e) m)
+    (fun (m, _) ->
+       List.iteri (fun i e -> if e > mx.(i) then mx.(i) <- e) (Monomial.exponents m))
     (Polynomial.to_list p);
   mx
 ;;

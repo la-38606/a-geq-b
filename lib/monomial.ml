@@ -34,6 +34,9 @@ let canonical (m : t) : t =
   List.rev (drop_leading_zeros (List.rev m))
 ;;
 
+(** The canonical exponent vector. *)
+let exponents (m : t) : int list = m
+
 (** The constant monomial [1]. *)
 let one : t = []
 
