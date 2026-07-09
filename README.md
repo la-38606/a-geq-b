@@ -54,12 +54,12 @@ Rational → Monomial → Polynomial → { Ast, Pretty }
 | `Monomial` — exponent vectors in canonical form (trailing zeros stripped) | ✅ done |
 | `Polynomial` — map monomial→coeff; `zero/one/const/var`, `add/neg/sub/scalar_mul/mul/pow`, `normalize`, `equal`, `degree` | ✅ done |
 | `Ast` — expression + claim tree | ✅ done |
-| `Parser` — string → `Ast` (recursive descent) | ✅ done |
-| `Normalizer` — `Ast → Polynomial`, and claim `A ⋛ B` → target `p ≥ 0` | ✅ done |
+| `Parser` — string → `Ast` (recursive descent, incl. division) | ✅ done |
+| `Normalizer` — `Ast → Polynomial`; claim `A ⋛ B` → `p ≥ 0`, clearing denominators | ✅ done |
 | `Pretty` — readable + LaTeX rendering of polynomials/certificates | ✅ done |
 | `Certificate` — SOS term data, rendering, JSON read + write | ✅ done |
 | `Checker` — `check_sos : poly → certificate → bool`, exact | ✅ done (trusted core) |
-| `Prover` — SOS search (Gram + rational LDLᵀ over a monomial basis) | 🚧 proves degree-≤2 and even-power forms (45/58 corpus); SDP case pending |
+| `Prover` — SOS search (Gram + rational LDLᵀ over a monomial basis, bounded grid search) | 🚧 proves 49/58 corpus targets; wide multi-var SDP case pending |
 | CLI — `--help`, `demo`, `prove`, `check` | ✅ done |
 | Tests — `test_polynomial`, `test_parser`, `test_checker` | ✅ 35 cases |
 
@@ -116,14 +116,15 @@ dune exec a-geq-b -- prove "a^2 + b^2 >= 2*a*b"             # -> NO_CERT_FOUND (
 dune exec a-geq-b -- --help
 ```
 
-`prove` parses the inequality, reduces it to `p ≥ 0`, and runs the automatic
-prover (Gram matrix + exact rational LDLᵀ over a monomial basis). It proves
-degree-≤2 targets and even-power / product SOS forms — e.g. `a^2+b^2 >= 2*a*b`
-now prints `PROVED` with the certificate `(a-b)^2`, found automatically. Targets
-whose Gram matrix is not uniquely determined (an SDP) still report
-`NO_CERT_FOUND` — which is *not* a disproof. `check` is fully wired: it loads a
-certificate and runs the trusted checker. Statuses: `PROVED` (0),
-`NO_CERT_FOUND` (2), `INVALID_INPUT` (3), `CHECK_FAILED` (4).
+`prove` parses the inequality (division allowed — denominators are cleared),
+reduces it to `p ≥ 0`, and runs the automatic prover (Gram matrix + exact
+rational LDLᵀ over a monomial basis, with a bounded rational grid search for
+under-determined cases). E.g. `a^2+b^2 >= 2*a*b` now prints `PROVED` with the
+certificate `(a-b)^2`, found automatically, and rational inputs like
+`(a-b)^2/2 >= 0` work too. Targets that need a wider (multi-variable)
+semidefinite search still report `NO_CERT_FOUND` — which is *not* a disproof.
+`check` loads a certificate and runs the trusted checker. Statuses: `PROVED`
+(0), `NO_CERT_FOUND` (2), `INVALID_INPUT` (3), `CHECK_FAILED` (4).
 
 ## Test corpus
 
