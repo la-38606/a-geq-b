@@ -14,6 +14,7 @@ type expr =
   | Add of expr * expr
   | Sub of expr * expr
   | Mul of expr * expr
+  | Div of expr * expr           (** division; cleared of denominators by the normalizer *)
   | Pow of expr * int            (** power with a nonnegative integer exponent *)
 
 (** Relational operator of a claim. *)

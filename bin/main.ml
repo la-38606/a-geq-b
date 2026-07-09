@@ -81,8 +81,13 @@ let run_prove (input : string) =
       Printf.eprintf "Could not parse the inequality: %s\n" msg;
       print_string "Status: INVALID_INPUT\n";
       exit 3
-  | Ok claim ->
-      let vars, target = Normalizer.poly_of_claim claim in
+  | Ok claim -> (
+      match Normalizer.poly_of_claim claim with
+      | exception Invalid_argument msg ->
+          Printf.eprintf "Could not reduce the inequality: %s\n" msg;
+          print_string "Status: INVALID_INPUT\n";
+          exit 3
+      | vars, target ->
       (match Prover.prove target with
        | Prover.Proved cert ->
            (* Untrusted output MUST pass the trusted checker before PROVED. *)
@@ -99,11 +104,12 @@ let run_prove (input : string) =
            print_preamble ~claim:input ~vars ~target;
            print_string
              (String.concat "\n"
-                [ "No supported sum-of-squares certificate was found. The automatic";
-                  "prover is not implemented yet (Milestone 5); this is not a disproof.";
+                [ "No supported sum-of-squares certificate was found. This is not a";
+                  "disproof: the target may still be true but need a certificate the";
+                  "current prover cannot construct (e.g. one requiring an SDP).";
                   ""; "" ]);
            print_string "Status: NO_CERT_FOUND\n";
-           exit 2)
+           exit 2))
 
 let run_check (path : string) =
   match Certificate.load_file path with

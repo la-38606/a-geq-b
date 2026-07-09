@@ -99,9 +99,55 @@ let test_claim_le () =
 
 let test_rejections () =
   List.iter (fun s -> expr_rejected s ())
-    [ "a +"; "a ** b"; "a b"; "a/b"; ""; "("; "a^"; "a^-1"; "*a"; "1/0" ];
+    [ "a +"; "a ** b"; "a b"; ""; "("; "a^"; "a^-1"; "*a"; "1/0" ];
   List.iter (fun s -> claim_rejected s ())
     [ "a >= "; "a > b"; "a b >= c"; "a^2 + b^2" (* no relation *) ]
+
+(* --- division / clearing denominators ----------------------------------- *)
+
+(* Division by a constant stays a polynomial. *)
+let test_div_by_constant () =
+  parses_to "(a + b)/2" (scale 1 2 (a +! b)) ();
+  parses_to "a/2 + b/2" (scale 1 2 (a +! b)) ()
+
+(* Division between expressions parses (it is cleared by the normalizer, not the
+   parser). *)
+let test_div_parses () =
+  (match Parser.parse_expr "a/b" with
+   | Ok _ -> ()
+   | Error m -> Alcotest.failf "a/b should parse: %s" m);
+  (match Parser.parse_expr "1/(a + b)" with
+   | Ok _ -> ()
+   | Error m -> Alcotest.failf "1/(a+b) should parse: %s" m)
+
+(* Reduce a claim to its target polynomial p (where p >= 0 proves the claim). *)
+let claim_target (s : string) : Polynomial.t =
+  match Parser.parse s with
+  | Ok c -> snd (Normalizer.poly_of_claim ~context:ctx c)
+  | Error m -> Alcotest.failf "test setup: could not parse %S: %s" s m
+
+let test_clear_reciprocal () =
+  (* 1/a >= 0  clears to  a >= 0  (multiply by a^2, i.e. p = 1 * a). *)
+  Alcotest.check poly "1/a >= 0 clears to a" a (claim_target "1/a >= 0")
+
+let test_clear_square_over_const () =
+  (* (a-b)^2/2 >= 0 clears to 2*(a-b)^2 (numerator times denominator). *)
+  Alcotest.check poly "(a-b)^2/2 clears" (scale 2 1 (Polynomial.pow (a -! b) 2))
+    (claim_target "(a - b)^2 / 2 >= 0")
+
+let test_clear_common_denominator () =
+  (* 1/a >= 1/b  ->  A - B = (b - a)/(ab); p = (b-a)*(ab). *)
+  Alcotest.check poly "1/a >= 1/b clears"
+    ((b -! a) *! (a *! b))
+    (claim_target "1/a >= 1/b")
+
+let test_division_by_zero_rejected () =
+  match Parser.parse "1/(a - a) >= 0" with
+  | Error m -> Alcotest.failf "should parse (error is at clearing time): %s" m
+  | Ok c -> (
+      match Normalizer.poly_of_claim ~context:ctx c with
+      | _ -> Alcotest.fail "expected a division-by-zero error"
+      | exception Invalid_argument _ -> ())
 
 (* --- JSON certificate loading ------------------------------------------- *)
 
@@ -190,6 +236,13 @@ let () =
         [ Alcotest.test_case "A >= B target" `Quick test_claim_ge;
           Alcotest.test_case "A <= B target" `Quick test_claim_le ] );
       ("invalid", [ Alcotest.test_case "malformed inputs rejected" `Quick test_rejections ]);
+      ( "division",
+        [ Alcotest.test_case "division by a constant" `Quick test_div_by_constant;
+          Alcotest.test_case "division parses" `Quick test_div_parses;
+          Alcotest.test_case "clear 1/a >= 0" `Quick test_clear_reciprocal;
+          Alcotest.test_case "clear (a-b)^2/2" `Quick test_clear_square_over_const;
+          Alcotest.test_case "clear common denominator" `Quick test_clear_common_denominator;
+          Alcotest.test_case "division by zero rejected" `Quick test_division_by_zero_rejected ] );
       ( "json",
         [ Alcotest.test_case "valid certificate loads and checks" `Quick test_json_valid;
           Alcotest.test_case "wrong coefficient fails check" `Quick test_json_wrong_coeff;

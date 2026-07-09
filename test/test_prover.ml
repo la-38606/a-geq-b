@@ -50,7 +50,10 @@ let provable_cases =
     "a^6 + b^6 >= 2*a^3*b^3";
     "a^8 + b^8 >= 2*a^4*b^4";
     "(a^2 + b^2)*(c^2 + d^2) >= (a*c + b*d)^2" (* Lagrange 2 *);
-    "a^2*b^2 + b^2*c^2 + c^2*a^2 >= a^2*b*c + a*b^2*c + a*b*c^2" ]
+    "a^2*b^2 + b^2*c^2 + c^2*a^2 >= a^2*b*c + a*b^2*c + a*b*c^2";
+    (* after clearing denominators *)
+    "(a - b)^2 / 2 >= 0";
+    "a^2/2 + 1/2 >= a" ]
 
 (* Must NOT be proved: false claims, out-of-scope (needs constraints), and
    higher-degree targets that need Gram freedom (SDP) not yet implemented. *)

@@ -9,18 +9,19 @@
       claim   := "prove"? expr relop expr
       relop   := ">=" | "<="
       expr    := term   (("+" | "-") term)*
-      term    := factor ("*" factor)*
+      term    := factor (("*" | "/") factor)*
       factor  := base ("^" nat)?
       base    := number | ident | "(" expr ")" | "-" factor
       number  := int | int "/" int          (* e.g. 3, -4, 1/2 *)
       ident   := letter (letter | digit)*    (* e.g. a, b, x1 *)
     v}
 
-    Precedence (tightest first): parentheses, powers, multiplication,
+    Precedence (tightest first): parentheses, powers, multiplication/division,
     addition/subtraction, then the relation.  Unary minus binds a [factor]
     (so [-a^2] parses as [-(a^2)]).  Implicit multiplication (["ab"]) is out of
-    scope for v1 — write ["a*b"].  Division only appears inside numeric literals
-    (["1/2"]); ["a/b"] is a parse error.
+    scope for v1 — write ["a*b"].  Division between expressions (["a/(b+c)"]) is
+    allowed and is cleared of denominators by the {!Normalizer}; a bare integer
+    fraction like ["1/2"] is still read as a single rational literal.
 
     Both entry points return [Error msg] on malformed input and never raise. *)
 
@@ -96,25 +97,26 @@ let tokenize (s : string) : token list =
 type cursor = { mutable toks : token list }
 
 let peek (c : cursor) : token = match c.toks with t :: _ -> t | [] -> EOF
+let peek2 (c : cursor) : token = match c.toks with _ :: t :: _ -> t | _ -> EOF
 let advance (c : cursor) : unit =
   match c.toks with _ :: r -> c.toks <- r | [] -> ()
 let expect (c : cursor) (t : token) (msg : string) : unit =
   if peek c = t then advance c else raise (Error_msg msg)
 
-(* number := int | int "/" int *)
+(* number := int | int "/" int
+   A '/' is only absorbed into a rational literal when it is immediately
+   followed by an integer (so "1/2" is the literal 1/2, while "1/a" leaves the
+   '/' for division in p_term). *)
 let p_number (c : cursor) : Rational.t =
   match peek c with
   | INT num -> (
       advance c;
-      match peek c with
-      | SLASH -> (
-          advance c;
-          match peek c with
-          | INT den ->
-              advance c;
-              if den = 0 then raise (Error_msg "zero denominator in rational literal");
-              Rational.of_ints num den
-          | _ -> raise (Error_msg "expected an integer after '/'"))
+      match (peek c, peek2 c) with
+      | SLASH, INT den ->
+          advance c (* '/' *);
+          advance c (* denominator *);
+          if den = 0 then raise (Error_msg "zero denominator in rational literal");
+          Rational.of_ints num den
       | _ -> Rational.of_int num)
   | _ -> raise (Error_msg "expected a number")
 
@@ -145,9 +147,12 @@ and p_factor (c : cursor) : Ast.expr =
 
 and p_term (c : cursor) : Ast.expr =
   let left = ref (p_factor c) in
-  while peek c = STAR do
-    advance c;
-    left := Ast.Mul (!left, p_factor c)
+  let continue = ref true in
+  while !continue do
+    match peek c with
+    | STAR -> advance c; left := Ast.Mul (!left, p_factor c)
+    | SLASH -> advance c; left := Ast.Div (!left, p_factor c)
+    | _ -> continue := false
   done;
   !left
 
