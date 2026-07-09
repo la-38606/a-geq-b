@@ -56,6 +56,22 @@ let test_negative_literal () = parses_to "a - 3" (a -! Polynomial.of_int 3) ()
 let test_nested () =
   parses_to "2*(a + b)*c - 1" (scale 2 1 ((a +! b) *! c) -! Polynomial.one) ()
 
+let test_rational_base_power () =
+  (* (1/2)^2 = 1/4 *)
+  parses_to "(1/2)^2" (Polynomial.const (Rational.of_ints 1 4)) ()
+
+let test_const_power () = parses_to "2^3" (Polynomial.of_int 8) ()
+
+let test_double_negation () = parses_to "a - -b" (a +! b) ()
+
+let test_unary_minus_binds_power () =
+  (* -a^2 parses as -(a^2), not (-a)^2 *)
+  parses_to "-a^2" (Polynomial.neg (Polynomial.pow a 2)) ()
+
+let test_right_assoc_power_rejected () =
+  (* the grammar allows a single exponent per factor: a^2^3 is not accepted *)
+  expr_rejected "a^2^3" ()
+
 (* --- claim parsing ------------------------------------------------------ *)
 
 let test_claim_ge () =
@@ -135,6 +151,26 @@ let test_json_missing_field () =
   | Ok _ -> Alcotest.fail "expected a missing-'claim' error"
   | Error _ -> ()
 
+let test_json_empty_sos_identity () =
+  (* a >= a : target is 0, and the empty sum of squares is a valid proof. *)
+  match Certificate.of_string {|{ "claim":"a >= a", "variables":["a"], "sos":[] }|} with
+  | Error m -> Alcotest.failf "of_string failed: %s" m
+  | Ok { target; certificate; _ } ->
+      Alcotest.(check bool) "0 = empty SOS" true (Checker.check_sos target certificate)
+
+let test_json_ignores_metadata () =
+  (* The loader must ignore extra fields (id, source, tags, ...). The corpus
+     relies on this so its entries double as check-able certificates. *)
+  let j =
+    {|{ "id":"x", "source":"test", "tags":["a"], "notes":"n",
+        "claim":"a^2 >= 0", "variables":["a"], "sos":[{"coeff":"1","poly":"a"}] }|}
+  in
+  match Certificate.of_string j with
+  | Error m -> Alcotest.failf "of_string failed: %s" m
+  | Ok { target; certificate; _ } ->
+      Alcotest.(check bool) "metadata ignored; a^2 >= 0 checks" true
+        (Checker.check_sos target certificate)
+
 let () =
   Alcotest.run "parser"
     [ ( "expressions",
@@ -144,7 +180,12 @@ let () =
           Alcotest.test_case "precedence" `Quick test_precedence;
           Alcotest.test_case "unary minus" `Quick test_unary_minus;
           Alcotest.test_case "negative literal" `Quick test_negative_literal;
-          Alcotest.test_case "nested" `Quick test_nested ] );
+          Alcotest.test_case "nested" `Quick test_nested;
+          Alcotest.test_case "rational-base power" `Quick test_rational_base_power;
+          Alcotest.test_case "constant power" `Quick test_const_power;
+          Alcotest.test_case "double negation" `Quick test_double_negation;
+          Alcotest.test_case "unary minus binds power" `Quick test_unary_minus_binds_power;
+          Alcotest.test_case "right-assoc power rejected" `Quick test_right_assoc_power_rejected ] );
       ( "claims",
         [ Alcotest.test_case "A >= B target" `Quick test_claim_ge;
           Alcotest.test_case "A <= B target" `Quick test_claim_le ] );
@@ -154,4 +195,6 @@ let () =
           Alcotest.test_case "wrong coefficient fails check" `Quick test_json_wrong_coeff;
           Alcotest.test_case "malformed rational rejected" `Quick test_json_malformed_rational;
           Alcotest.test_case "unknown variable rejected" `Quick test_json_unknown_variable;
-          Alcotest.test_case "missing field rejected" `Quick test_json_missing_field ] ) ]
+          Alcotest.test_case "missing field rejected" `Quick test_json_missing_field;
+          Alcotest.test_case "empty SOS proves identity" `Quick test_json_empty_sos_identity;
+          Alcotest.test_case "loader ignores metadata" `Quick test_json_ignores_metadata ] ) ]
