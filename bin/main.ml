@@ -37,6 +37,29 @@ let usage () =
        ])
 ;;
 
+(* --- exit status -------------------------------------------------------- *)
+
+(* The four outcomes the CLI can report. Keeping the status -> (line, exit code)
+   mapping in a single total function makes it impossible to pair, say, PROVED
+   with the wrong exit code. *)
+type status =
+  | Proved
+  | No_cert_found
+  | Invalid_input
+  | Check_failed
+
+let finish (status : status) =
+  let name, code =
+    match status with
+    | Proved -> "PROVED", 0
+    | No_cert_found -> "NO_CERT_FOUND", 2
+    | Invalid_input -> "INVALID_INPUT", 3
+    | Check_failed -> "CHECK_FAILED", 4
+  in
+  Printf.printf "Status: %s\n" name;
+  exit code
+;;
+
 (* --- shared printing ---------------------------------------------------- *)
 
 (* The common "Claim / Equivalent to proving" preamble. *)
@@ -62,8 +85,7 @@ let print_proved ~claim ~vars ~target ~cert =
   Printf.printf
     "LaTeX:\n  %s = %s\n\n"
     (Pretty.latex_of_poly vars target)
-    (Certificate.to_latex vars cert);
-  print_string "Status: PROVED\n"
+    (Certificate.to_latex vars cert)
 ;;
 
 let string_of_failure ~vars = function
@@ -87,24 +109,20 @@ let run_demo () =
   if Checker.check_sos target cert
   then (
     print_proved ~claim:Prover.hello_world_claim_string ~vars ~target ~cert;
-    exit 0)
-  else (
-    print_string "Status: CHECK_FAILED\n";
-    exit 4)
+    finish Proved)
+  else finish Check_failed
 ;;
 
 let run_prove (input : string) =
   match Parser.parse input with
   | Error msg ->
     Printf.eprintf "Could not parse the inequality: %s\n" msg;
-    print_string "Status: INVALID_INPUT\n";
-    exit 3
+    finish Invalid_input
   | Ok claim ->
     (match Normalizer.poly_of_claim claim with
      | exception Invalid_argument msg ->
        Printf.eprintf "Could not reduce the inequality: %s\n" msg;
-       print_string "Status: INVALID_INPUT\n";
-       exit 3
+       finish Invalid_input
      | vars, target ->
        (match Prover.prove target with
         | Prover.Proved cert ->
@@ -112,13 +130,12 @@ let run_prove (input : string) =
           if Checker.check_sos target cert
           then (
             print_proved ~claim:input ~vars ~target ~cert;
-            exit 0)
+            finish Proved)
           else (
             print_preamble ~claim:input ~vars ~target;
             print_string
               "The prover proposed a certificate, but the checker rejected it.\n\n";
-            print_string "Status: CHECK_FAILED\n";
-            exit 4)
+            finish Check_failed)
         | Prover.No_certificate_found ->
           print_preamble ~claim:input ~vars ~target;
           print_string
@@ -130,26 +147,23 @@ let run_prove (input : string) =
                ; ""
                ; ""
                ]);
-          print_string "Status: NO_CERT_FOUND\n";
-          exit 2))
+          finish No_cert_found))
 ;;
 
 let run_check (path : string) =
   match Certificate.load_file path with
   | Error msg ->
     Printf.eprintf "Could not load certificate: %s\n" msg;
-    print_string "Status: INVALID_INPUT\n";
-    exit 3
+    finish Invalid_input
   | Ok { claim_text; vars; target; certificate } ->
     (match Checker.check target certificate with
      | Checker.Verified ->
        print_proved ~claim:claim_text ~vars ~target ~cert:certificate;
-       exit 0
+       finish Proved
      | Checker.Rejected failure ->
        print_preamble ~claim:claim_text ~vars ~target;
        Printf.printf "Certificate rejected: %s\n\n" (string_of_failure ~vars failure);
-       print_string "Status: CHECK_FAILED\n";
-       exit 4)
+       finish Check_failed)
 ;;
 
 let () =
