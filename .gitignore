@@ -8,3 +8,6 @@ _opam/
 
 # Copyrighted reference book (personal-use PDF; do not redistribute via the repo)
 inequalities-a-mathematical-olympiad-approach.pdf
+
+# Python cache from the corpus scripts
+__pycache__/
