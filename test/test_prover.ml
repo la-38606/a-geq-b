@@ -51,6 +51,10 @@ let provable_cases =
     "a^8 + b^8 >= 2*a^4*b^4";
     "(a^2 + b^2)*(c^2 + d^2) >= (a*c + b*d)^2" (* Lagrange 2 *);
     "a^2*b^2 + b^2*c^2 + c^2*a^2 >= a^2*b*c + a*b^2*c + a*b*c^2";
+    (* under-determined Gram, resolved by the bounded grid search *)
+    "a^4 + 6*a^2*b^2 + b^4 >= 4*a^3*b + 4*a*b^3" (* (a-b)^4 *);
+    "8*(a^4 + b^4) >= (a + b)^4";
+    "a^4 + b^4 >= a^3*b + a*b^3" (* cyclic *);
     (* after clearing denominators *)
     "(a - b)^2 / 2 >= 0";
     "a^2/2 + 1/2 >= a" ]
@@ -64,8 +68,8 @@ let unprovable_cases =
     "a + b + c >= 3" (* out of scope: only true under a constraint *);
     "a >= 0" (* linear: not nonnegative for all reals *);
     "a^3 + b^3 + c^3 >= 3*a*b*c" (* degree 3: needs a >= 0 *);
-    "a^4 + b^4 + c^4 + d^4 >= 4*a*b*c*d" (* needs a non-unique Gram (SDP) *);
-    "a^4 + b^4 >= a^3*b + a*b^3" (* cyclic; needs Gram freedom *) ]
+    "a^4 + b^4 + c^4 + d^4 >= 4*a*b*c*d" (* needs a wider Gram search (SDP) *);
+    "a^4 + b^4 + c^4 >= a^2*b*c + a*b^2*c + a*b*c^2" (* many free params: SDP *) ]
 
 let () =
   Alcotest.run "prover"

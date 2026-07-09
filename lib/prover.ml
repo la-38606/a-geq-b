@@ -41,53 +41,89 @@ let support (m : Monomial.t) : (int * int) list =
 
 let half = Rational.of_ints 1 2
 
-(* Build the Gram matrix Q with z^T Q z = p over a chosen monomial basis
-   z = [basis.(0); ...; basis.(r-1)], returning [None] if p cannot be written
-   uniquely this way. The entry Q[i][j] is forced by the coefficient in p of the
-   product monomial basis.(i) * basis.(j):
+(* Candidate Gram matrices Q with z^T Q z = p over a chosen monomial basis
+   z = [basis.(0); ...; basis.(r-1)].
 
-   - if two different index pairs produce the SAME monomial, the Gram is not
-     uniquely determined (an SDP would be needed) -> [None];
-   - if some monomial of p is not a product of two basis elements, p is not
-     representable in this basis -> [None].
+   Matching coefficients gives, for each product monomial m = basis_i*basis_j,
+   the linear constraint  sum over pairs (i,j) with basis_i*basis_j = m of
+   w_ij * Q[i][j] = coeff_p(m),  where w_ij = 1 if i=j else 2. Then:
 
-   When it succeeds the returned matrix is exact and satisfies z^T Q z = p
-   identically (later re-checked by the trusted checker anyway). *)
-let gram_of_basis (p : Polynomial.t) (basis : Monomial.t array) : Rational.t array array option =
+   - if p has a monomial not producible as any such product, p is not
+     representable in this basis -> no candidates;
+   - if every product monomial is made by a UNIQUE pair, Q is forced -> one
+     candidate;
+   - otherwise the Gram is under-determined (an SDP). Each product monomial with
+     k >= 2 pairs contributes k-1 free entries; if there are at most 2 free
+     entries in total we enumerate a bounded rational grid of values for them,
+     solving the remaining "dependent" entry from the constraint. More than 2
+     free entries -> we give up (no candidates).
+
+   Every returned matrix satisfies z^T Q z = p exactly by construction (the
+   trusted checker re-verifies anyway); only its positive-semidefiniteness,
+   tested later by LDL^T, distinguishes a real certificate. *)
+
+(* Rational grid { n/2 : -12 <= n <= 12 } for free Gram entries. *)
+let grid : Rational.t list = List.init 25 (fun n -> Rational.of_ints (n - 12) 2)
+
+let gram_candidates (p : Polynomial.t) (basis : Monomial.t array) : Rational.t array array list =
   let r = Array.length basis in
-  if r = 0 then None
+  if r = 0 then []
   else begin
-    (* product monomial -> the unique (i, j) pair that makes it *)
-    let pair_of : (Monomial.t, int * int) Hashtbl.t = Hashtbl.create 64 in
-    let collision = ref false in
-    (try
-       for i = 0 to r - 1 do
-         for j = i to r - 1 do
-           let pm = Monomial.mul basis.(i) basis.(j) in
-           if Hashtbl.mem pair_of pm then (collision := true; raise Exit)
-           else Hashtbl.add pair_of pm (i, j)
-         done
-       done
-     with Exit -> ());
+    (* product monomial -> list of (i, j) pairs (i <= j) that build it *)
+    let pairs_of : (Monomial.t, (int * int) list) Hashtbl.t = Hashtbl.create 64 in
+    for i = 0 to r - 1 do
+      for j = i to r - 1 do
+        let pm = Monomial.mul basis.(i) basis.(j) in
+        let cur = try Hashtbl.find pairs_of pm with Not_found -> [] in
+        Hashtbl.replace pairs_of pm ((i, j) :: cur)
+      done
+    done;
     let representable =
-      (not !collision)
-      && List.for_all (fun (mono, _) -> Hashtbl.mem pair_of mono) (Polynomial.to_list p)
+      List.for_all (fun (mono, _) -> Hashtbl.mem pairs_of mono) (Polynomial.to_list p)
     in
-    if not representable then None
+    if not representable then []
     else begin
-      let q = Array.make_matrix r r Rational.zero in
-      Hashtbl.iter
-        (fun pm (i, j) ->
-          let c = Polynomial.coeff pm p in
-          if not (Rational.is_zero c) then
-            if i = j then q.(i).(i) <- c
-            else begin
-              let h = Rational.mul half c in
-              q.(i).(j) <- h;
-              q.(j).(i) <- h
-            end)
-        pair_of;
-      Some q
+      let weight (i, j) = if i = j then Rational.one else Rational.of_int 2 in
+      (* free entries: for each product monomial, all pairs beyond the first *)
+      let free = Hashtbl.fold (fun _ ps acc -> match ps with _ :: rest -> rest @ acc | [] -> acc) pairs_of [] in
+      if List.length free > 2 then []
+      else begin
+        (* Build a Gram from a value assigned to each free entry. *)
+        let build (assign : int * int -> Rational.t) : Rational.t array array =
+          let q = Array.make_matrix r r Rational.zero in
+          let set (i, j) v = q.(i).(j) <- v; q.(j).(i) <- v in
+          Hashtbl.iter
+            (fun pm ps ->
+              match ps with
+              | [] -> ()
+              | dep :: frees ->
+                  let c = Polynomial.coeff pm p in
+                  (* place free entries, accumulating their weighted contribution *)
+                  let used =
+                    List.fold_left
+                      (fun acc e ->
+                        let v = assign e in
+                        set e v;
+                        Rational.add acc (Rational.mul (weight e) v))
+                      Rational.zero frees
+                  in
+                  (* the dependent entry absorbs the rest of the constraint *)
+                  set dep (Rational.div (Rational.sub c used) (weight dep)))
+            pairs_of;
+          q
+        in
+        match free with
+        | [] -> [ build (fun _ -> Rational.zero) ]
+        | [ e1 ] -> List.map (fun g1 -> build (fun e -> if e = e1 then g1 else Rational.zero)) grid
+        | [ e1; e2 ] ->
+            List.concat_map
+              (fun g1 ->
+                List.map
+                  (fun g2 -> build (fun e -> if e = e1 then g1 else if e = e2 then g2 else Rational.zero))
+                  grid)
+              grid
+        | _ -> []
+      end
     end
   end
 
@@ -141,14 +177,17 @@ let certificate_of_ldlt (basis : Monomial.t array) (l : Rational.t array array)
   done;
   Certificate.make !terms
 
-(* Try to prove p >= 0 using SOS over a specific monomial basis. *)
+(* Try to prove p >= 0 using SOS over a specific monomial basis: return the
+   certificate from the first candidate Gram matrix that is PSD. *)
 let prove_with_basis (p : Polynomial.t) (basis : Monomial.t array) : Certificate.t option =
-  match gram_of_basis p basis with
-  | None -> None
-  | Some q -> (
-      match ldlt q with
-      | l, d -> Some (certificate_of_ldlt basis l d)
-      | exception Not_psd -> None)
+  let rec first = function
+    | [] -> None
+    | q :: rest -> (
+        match ldlt q with
+        | l, d -> Some (certificate_of_ldlt basis l d)
+        | exception Not_psd -> first rest)
+  in
+  first (gram_candidates p basis)
 
 (* Candidate bases, tried in order of increasing generality. *)
 
@@ -174,13 +213,57 @@ let square_root_basis ?(pure = false) (p : Polynomial.t) : Monomial.t array =
   in
   Array.of_list (List.sort_uniq Monomial.compare roots)
 
+let is_homogeneous (p : Polynomial.t) : bool =
+  match Polynomial.to_list p with
+  | [] -> true
+  | (m0, _) :: rest ->
+      let d0 = Monomial.degree m0 in
+      List.for_all (fun (m, _) -> Monomial.degree m = d0) rest
+
+(* Per-variable maximum exponent occurring in p (a loose cap for basis size). *)
+let max_exponents (p : Polynomial.t) (n : int) : int array =
+  let mx = Array.make (max n 1) 0 in
+  List.iter
+    (fun (m, _) -> List.iteri (fun i e -> if e > mx.(i) then mx.(i) <- e) m)
+    (Polynomial.to_list p);
+  mx
+
+(* All monomials of total degree exactly [d] over [n] variables, with each
+   exponent capped by [cap.(i)]. *)
+let monomials_of_degree (n : int) (d : int) (cap : int array) : Monomial.t list =
+  let acc = ref [] in
+  let rec go i rem cur =
+    if i = n then (if rem = 0 then acc := Monomial.canonical (List.rev cur) :: !acc)
+    else
+      for e = 0 to min rem cap.(i) do
+        go (i + 1) (rem - e) (e :: cur)
+      done
+  in
+  go 0 d [];
+  !acc
+
+(* For a homogeneous target of even degree 2d, the full degree-d monomial basis.
+   Needed when a required generator (e.g. ab for a^4+b^4 >= a^3b+ab^3) is not a
+   square root of any monomial of p. Empty for non-homogeneous or odd-degree p. *)
+let homogeneous_basis (p : Polynomial.t) : Monomial.t array =
+  let deg = Polynomial.degree p in
+  if deg = 0 || deg mod 2 <> 0 || not (is_homogeneous p) then [||]
+  else
+    let n = Polynomial.num_vars p in
+    Array.of_list (monomials_of_degree n (deg / 2) (max_exponents p n))
+
 (** Attempt to find an SOS certificate for [p >= 0]. Tries a sequence of
-    monomial bases (degree-2 Gram, then even-power substitution bases); each
-    candidate is re-checked by the trusted {!Checker}, so a bug in the search
-    can only cause a missed proof, never a false one. *)
+    monomial bases (degree-2 Gram, even-power substitution bases, then the full
+    degree-d basis for homogeneous targets). Under-determined Gram matrices are
+    resolved by a bounded rational grid search (see {!gram_candidates}). Every
+    candidate is re-checked by the trusted {!Checker}, so a bug in the search can
+    only cause a missed proof, never a false one. *)
 let prove (p : Polynomial.t) : result =
   let bases =
-    [ quadratic_basis p; square_root_basis ~pure:true p; square_root_basis ~pure:false p ]
+    [ quadratic_basis p;
+      square_root_basis ~pure:true p;
+      square_root_basis ~pure:false p;
+      homogeneous_basis p ]
   in
   let rec go = function
     | [] -> No_certificate_found
