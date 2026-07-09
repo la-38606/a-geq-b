@@ -1199,6 +1199,120 @@
       "domain": "positive reals with abc = 1",
       "constraints": ["a*b*c = 1", "a > 0", "b > 0", "c > 0"],
       "source": "power mean (abc = 1)"
+    },
+    {
+      "id": "triangle-of-squares",
+      "claim": "2*(a-b)^2 + 2*(b-c)^2 >= (a-c)^2",
+      "variables": ["a", "b", "c"],
+      "degree": 2,
+      "category": "in_scope_sos",
+      "expected": "PROVED",
+      "domain": "all reals",
+      "source": "triangle inequality for squared distances",
+      "sos": [{"coeff": "1", "poly": "a - 2*b + c"}],
+      "notes": "2(a-b)^2 + 2(b-c)^2 - (a-c)^2 = (a - 2b + c)^2."
+    },
+    {
+      "id": "bipartite-4var",
+      "claim": "a^2 + b^2 + c^2 + d^2 >= a*c + a*d + b*c + b*d",
+      "variables": ["a", "b", "c", "d"],
+      "degree": 2,
+      "category": "in_scope_sos",
+      "expected": "PROVED",
+      "domain": "all reals",
+      "source": "bipartite (K_{2,2}) quadratic form",
+      "sos": [{"coeff": "1/2", "poly": "a - c"}, {"coeff": "1/2", "poly": "a - d"}, {"coeff": "1/2", "poly": "b - c"}, {"coeff": "1/2", "poly": "b - d"}],
+      "notes": "Half the sum of (a-c)^2, (a-d)^2, (b-c)^2, (b-d)^2."
+    },
+    {
+      "id": "square-a-minus-b-minus-c",
+      "claim": "a^2 + b^2 + c^2 + 2*b*c >= 2*a*b + 2*a*c",
+      "variables": ["a", "b", "c"],
+      "degree": 2,
+      "category": "in_scope_sos",
+      "expected": "PROVED",
+      "domain": "all reals",
+      "source": "single perfect square",
+      "sos": [{"coeff": "1", "poly": "a - b - c"}],
+      "notes": "(a - b - c)^2 >= 0."
+    },
+    {
+      "id": "iran-1996",
+      "claim": "(a*b + b*c + c*a)*(1/(a+b)^2 + 1/(b+c)^2 + 1/(c+a)^2) >= 9/4",
+      "variables": ["a", "b", "c"],
+      "form": "rational",
+      "category": "out_of_scope_v1",
+      "expected": "NO_CERT_FOUND",
+      "domain": "positive reals",
+      "constraints": ["a > 0", "b > 0", "c > 0"],
+      "source": "Iran 1996 (famous)",
+      "notes": "Rational; the target after clearing denominators has high degree. Tight as c -> 0, a = b."
+    },
+    {
+      "id": "japan-1997",
+      "claim": "(b+c-a)^2/((b+c)^2 + a^2) + (c+a-b)^2/((c+a)^2 + b^2) + (a+b-c)^2/((a+b)^2 + c^2) >= 3/5",
+      "variables": ["a", "b", "c"],
+      "form": "rational",
+      "category": "out_of_scope_v1",
+      "expected": "NO_CERT_FOUND",
+      "domain": "positive reals",
+      "constraints": ["a > 0", "b > 0", "c > 0"],
+      "source": "Japan 1997"
+    },
+    {
+      "id": "imo-1995-p2",
+      "claim": "1/(a^3*(b+c)) + 1/(b^3*(c+a)) + 1/(c^3*(a+b)) >= 3/2",
+      "variables": ["a", "b", "c"],
+      "form": "rational",
+      "category": "out_of_scope_v1",
+      "expected": "NO_CERT_FOUND",
+      "domain": "positive reals with abc = 1",
+      "constraints": ["a*b*c = 1", "a > 0", "b > 0", "c > 0"],
+      "source": "IMO 1995 Problem 2"
+    },
+    {
+      "id": "engel-cauchy",
+      "claim": "a^2/(b+c) + b^2/(c+a) + c^2/(a+b) >= (a+b+c)/2",
+      "variables": ["a", "b", "c"],
+      "form": "rational",
+      "category": "out_of_scope_v1",
+      "expected": "NO_CERT_FOUND",
+      "domain": "positive reals",
+      "constraints": ["a > 0", "b > 0", "c > 0"],
+      "source": "Cauchy-Schwarz (Engel form / Titu's lemma)"
+    },
+    {
+      "id": "imo-2000-p2",
+      "claim": "(a - 1 + 1/b)*(b - 1 + 1/c)*(c - 1 + 1/a) <= 1",
+      "variables": ["a", "b", "c"],
+      "form": "rational",
+      "category": "out_of_scope_v1",
+      "expected": "NO_CERT_FOUND",
+      "domain": "positive reals with abc = 1",
+      "constraints": ["a*b*c = 1", "a > 0", "b > 0", "c > 0"],
+      "source": "IMO 2000 Problem 2"
+    },
+    {
+      "id": "cyclic-cauchy-cubes",
+      "claim": "a^3/b + b^3/c + c^3/a >= a^2 + b^2 + c^2",
+      "variables": ["a", "b", "c"],
+      "form": "rational",
+      "category": "out_of_scope_v1",
+      "expected": "NO_CERT_FOUND",
+      "domain": "positive reals",
+      "constraints": ["a > 0", "b > 0", "c > 0"],
+      "source": "Cauchy-Schwarz / rearrangement"
+    },
+    {
+      "id": "abc-plus-one",
+      "claim": "a^2 + b^2 + c^2 + 2*a*b*c + 1 >= 2*(a*b + b*c + c*a)",
+      "variables": ["a", "b", "c"],
+      "degree": 3,
+      "category": "out_of_scope_v1",
+      "expected": "NO_CERT_FOUND",
+      "domain": "nonnegative reals",
+      "constraints": ["a >= 0", "b >= 0", "c >= 0"],
+      "source": "well-known (nonnegative a, b, c)"
     }
   ]
 }

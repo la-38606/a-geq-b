@@ -160,7 +160,10 @@ def main() -> int:
             ns = draw(sampler, e, V)
             if ns is None:
                 break
-            m = margin(ns)
+            try:
+                m = margin(ns)
+            except ZeroDivisionError:
+                continue  # a zero denominator; just try another point
             if m < -TOL:
                 found_false = True
                 if worst is None or m < worst[0]:

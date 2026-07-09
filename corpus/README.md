@@ -1,18 +1,20 @@
 # A≥B inequality corpus
 
-A curated set of **100** polynomial inequalities for testing the A≥B prover and
-checker. The single source of truth is [`inequalities.json`](inequalities.json).
+A curated set of **110** inequalities for testing the A≥B prover and checker,
+including rational-function ones (denominators are cleared). The single source
+of truth is [`inequalities.json`](inequalities.json).
 
 | category | count | v1 `expected` |
 | --- | --- | --- |
-| `in_scope_sos` | 58 (55 with certificates) | `PROVED` |
-| `out_of_scope_v1` | 36 | `NO_CERT_FOUND` |
+| `in_scope_sos` | 61 (58 with certificates) | `PROVED` |
+| `out_of_scope_v1` | 43 | `NO_CERT_FOUND` |
 | `not_sos` | 3 | `NO_CERT_FOUND` |
 | `false` | 3 | `NO_CERT_FOUND` |
 
-Degrees range from 1 to 8, in 1–8 variables. Two verification passes keep it
-honest: `verify.py` *proves* the 55 certified entries exactly with the trusted
-checker, and `sanity_sample.py` *numerically samples* all 100 on their domains.
+Degrees range from 1 to 8 (rational entries higher after clearing), in 1–8
+variables. Two verification passes keep it honest: `verify.py` *proves* the 58
+certified entries exactly with the trusted checker, and `sanity_sample.py`
+*numerically samples* all 110 on their domains.
 
 ## Why a corpus
 
@@ -26,7 +28,7 @@ checker, and `sanity_sample.py` *numerically samples* all 100 on their domains.
   the `in_scope_sos` entries and `NO_CERT_FOUND` for everything else — never
   `PROVED` for a `not_sos`, `out_of_scope_v1`, or `false` entry (soundness).
   [`run_prover.py`](run_prover.py) enforces the soundness half over the whole
-  corpus and reports coverage; it currently proves 49 of the 58 `in_scope_sos`
+  corpus and reports coverage; it currently proves 52 of the 61 `in_scope_sos`
   targets.
 
 ## Entry format
