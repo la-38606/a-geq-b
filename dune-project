@@ -2,6 +2,10 @@
 
 (name a-geq-b)
 
+(license MIT)
+(authors "Luiz Akabane")
+(maintainers "Luiz Akabane")
+
 (package
  (name a-geq-b)
  (synopsis "A>=B: prove polynomial inequalities via sum-of-squares certificates")
