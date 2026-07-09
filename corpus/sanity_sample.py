@@ -162,10 +162,16 @@ def main() -> int:
 
         worst = None
         found_false = False
+        drawn = 0  # how many in-domain points we actually evaluated
+        misses = 0
         for _ in range(N):
             ns = draw(sampler, e, V)
             if ns is None:
-                break
+                misses += 1
+                if misses > 500:
+                    break  # domain too hard to hit; stop wasting attempts
+                continue
+            drawn += 1
             try:
                 m = margin(ns)
             except ZeroDivisionError:
@@ -174,6 +180,13 @@ def main() -> int:
                 found_false = True
                 if worst is None or m < worst[0]:
                     worst = (m, ns)
+
+        # Guard against vacuous passes: an entry whose domain we could barely
+        # sample was never really tested.
+        if drawn < 200 and e["category"] != "false":
+            counts["SKIP"] += 1
+            print(f"SKIP {e['id']}: only {drawn} in-domain samples (domain hard to hit)")
+            continue
 
         if e["category"] == "false":
             # A false claim SHOULD be violated somewhere.
