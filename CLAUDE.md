@@ -55,15 +55,15 @@ lib/
   monomial.ml     exponent vectors (canonical form)
   polynomial.ml   map monomial → coeff; arithmetic; equality
   ast.ml          expression + claim syntax tree
-  parser.ml       string → Ast          (STUB — see grammar in file)
+  parser.ml       string → Ast          (recursive descent)
   normalizer.ml   Ast → Polynomial; claim A⋛B → target p≥0
   pretty.ml       readable + LaTeX rendering
-  certificate.ml  SOS term data + rendering + JSON (write)
+  certificate.ml  SOS term data + rendering + JSON read/write
   checker.ml      TRUSTED exact checker: check_sos
   prover.ml       untrusted search  (STUB) + hardcoded demo
-bin/main.ml       CLI (--help, demo)
-test/             test_polynomial.ml, test_checker.ml (Alcotest)
-examples/         hello_world.cert.json (reference certificate)
+bin/main.ml       CLI (--help, demo, prove, check)
+test/             test_polynomial.ml, test_parser.ml, test_checker.ml (Alcotest)
+examples/         hello_world.cert.json, corrupted.cert.json
 ```
 
 ## Build / test / run
@@ -78,14 +78,30 @@ dune exec a-geq-b -- demo
 `C_INCLUDE_PATH=/opt/homebrew/include LIBRARY_PATH=/opt/homebrew/lib` when
 installing zarith).
 
+## Status
+
+- **Milestone 1** (exact polynomial core) — ✅ done.
+- **Milestone 2** (parser, normalizer, JSON read/write, `prove`/`check` CLI with
+  the four statuses) — ✅ done.
+- **Milestones 3–4** (checker, pretty/LaTeX proof printer) — ✅ done.
+
 ## Next implementation step
 
-**Milestone 2 — the parser + JSON loading.** Implement `Parser.parse` /
-`Parser.parse_expr` per the grammar documented in `lib/parser.ml` (numbers incl.
-`1/2`, variables, `+ - * ^`, `>= <=`, optional leading `prove`; return
-`Error msg` on bad input, never raise). Then finish `Certificate.of_json` (it
-already validates coefficients; it needs the parser to turn `"poly"` strings
-into polynomials) and wire up the `prove` and `check` CLI subcommands with the
-statuses `PROVED / NO_CERT_FOUND / INVALID_INPUT / CHECK_FAILED`. Add
-`test/test_parser.ml`. Only after that comes the automatic prover (Stage B:
-quadratic-form; Stage C: pairwise differences; Stage D: Gram/SDP).
+**Milestone 5 — the automatic prover.** `Prover.prove` is still a stub returning
+`No_certificate_found`; implement real SOS search, in stages, and route every
+candidate through `Checker.check_sos` before the CLI prints `PROVED`:
+
+- **Stage B — quadratic forms.** For a homogeneous degree-2 target, build the
+  symmetric matrix `A` with `p = xᵀAx`; if `A` is PSD and rationally
+  decomposable (e.g. rational LDLᵀ / Cholesky), emit the SOS certificate.
+  Targets: `a^2+b^2 >= 2ab`, `x^2+y^2+z^2 >= xy+yz+zx`, `2x^2+2y^2 >= (x+y)^2`.
+- **Stage C — pairwise differences.** For `a,b,c`, search certificates built
+  from `a-b, b-c, c-a` and simple monomial multiples (helps symmetric
+  inequalities tight at `a=b=c`).
+- **Stage D — Gram/SDP.** Monomial basis `z`, symbolic `zᵀQz`, match
+  coefficients to constrain `Q`, call an external SDP solver, round to rationals,
+  and re-verify with the checker. Numerical code stays untrusted.
+
+Exit condition (brief, Milestone 5): at least 10 textbook inequalities prove
+automatically, and unsupported ones return `NO_CERT_FOUND`, never `PROVED`. Add
+`test/test_prover.ml`. SDP/Coq/frontend remain last.

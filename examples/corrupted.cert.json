@@ -1,0 +1,9 @@
+{
+  "claim": "a^2 + b^2 + c^2 >= a*b + b*c + c*a",
+  "variables": ["a", "b", "c"],
+  "sos": [
+    { "coeff": "1/2", "poly": "a - b" },
+    { "coeff": "1/3", "poly": "b - c" },
+    { "coeff": "1/2", "poly": "a - c" }
+  ]
+}

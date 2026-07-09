@@ -54,14 +54,14 @@ Rational → Monomial → Polynomial → { Ast, Pretty }
 | `Monomial` — exponent vectors in canonical form (trailing zeros stripped) | ✅ done |
 | `Polynomial` — map monomial→coeff; `zero/one/const/var`, `add/neg/sub/scalar_mul/mul/pow`, `normalize`, `equal`, `degree` | ✅ done |
 | `Ast` — expression + claim tree | ✅ done |
+| `Parser` — string → `Ast` (recursive descent) | ✅ done |
 | `Normalizer` — `Ast → Polynomial`, and claim `A ⋛ B` → target `p ≥ 0` | ✅ done |
 | `Pretty` — readable + LaTeX rendering of polynomials/certificates | ✅ done |
-| `Certificate` — SOS term data, rendering, JSON serialisation | ✅ done (JSON *write* only) |
+| `Certificate` — SOS term data, rendering, JSON read + write | ✅ done |
 | `Checker` — `check_sos : poly → certificate → bool`, exact | ✅ done (trusted core) |
 | `Prover` — SOS search | 🚧 stub (returns `No_certificate_found`) + hardcoded demo |
-| `Parser` — string → `Ast` | 🚧 stub (grammar documented) |
-| CLI | ✅ `--help`, `demo` (others stubbed) |
-| Tests | ✅ `test_polynomial`, `test_checker` (20 cases) |
+| CLI — `--help`, `demo`, `prove`, `check` | ✅ done |
+| Tests — `test_polynomial`, `test_parser`, `test_checker` | ✅ 35 cases |
 
 ### Canonical form (the key invariant)
 
@@ -93,11 +93,13 @@ dune runtest
 ```
 
 Covers polynomial arithmetic laws (`p+0=p`, `p·1=p`, commutativity,
-associativity, distributivity, …), normalisation, and the checker (accepts the
-classic three-variable certificate; rejects negative coefficients, wrong
-expansions, missing terms, and extra terms).
+associativity, distributivity, …), normalisation; the parser (expressions,
+precedence, rationals, claims, malformed-input rejection) and JSON certificate
+loading; and the checker (accepts the classic three-variable certificate;
+rejects negative coefficients, wrong expansions, missing terms, and extra
+terms).
 
-## Run the demo
+## Run it
 
 ```
 dune exec a-geq-b -- demo
@@ -108,22 +110,26 @@ through the trusted checker, and prints a readable proof (plus LaTeX) ending in
 `Status: PROVED`.
 
 ```
+dune exec a-geq-b -- check examples/hello_world.cert.json   # -> PROVED
+dune exec a-geq-b -- check examples/corrupted.cert.json     # -> CHECK_FAILED
+dune exec a-geq-b -- prove "a^2 + b^2 >= 2*a*b"             # -> NO_CERT_FOUND (no prover yet)
 dune exec a-geq-b -- --help
 ```
+
+`prove` parses the inequality and reduces it to `p ≥ 0`, but the automatic
+search engine is not built yet (Milestone 5), so it currently reports
+`NO_CERT_FOUND` — which is *not* a disproof. `check` is fully wired: it loads a
+certificate and runs the trusted checker. Statuses: `PROVED` (0),
+`NO_CERT_FOUND` (2), `INVALID_INPUT` (3), `CHECK_FAILED` (4).
 
 ## Deliberately not implemented yet
 
 Per the implementation brief, these are **stretch goals, not foundations**, and
 are intentionally left for later prompts:
 
-- the **parser** (`prove "a^2+b^2 >= 2*a*b"` → `Ast`) — grammar is documented in
-  [`lib/parser.ml`](lib/parser.ml);
-- **JSON certificate loading** (`Certificate.of_json`) — blocked on the parser
-  (turning `"a - b"` back into a polynomial). The example
-  [`examples/hello_world.cert.json`](examples/hello_world.cert.json) is a
-  reference artifact; the demo/tests build certificates directly in OCaml;
 - the **automatic prover** — quadratic-form / Gram-matrix SOS search,
-  pairwise-difference patterns;
+  pairwise-difference patterns (Milestone 5). `Prover.prove` is still a stub, so
+  `prove` reports `NO_CERT_FOUND`;
 - **SDP** integration, **Coq/Lean** extraction, a **web frontend**, and any
   olympiad corpus study.
 
