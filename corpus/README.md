@@ -22,10 +22,12 @@ checker, and `sanity_sample.py` *numerically samples* all 100 on their domains.
   `a-geq-b check` command and confirms `PROVED`. A certificate that verifies is
   a proof that the inequality holds for **all real values** — so the corpus is
   self-checking, not just asserted.
-- **Targets for the prover (later).** Once the automatic prover (Milestone 5)
-  exists, it should return `PROVED` for the `in_scope_sos` entries and
-  `NO_CERT_FOUND` for everything else — never `PROVED` for a `not_sos`,
-  `out_of_scope_v1`, or `false` entry (soundness).
+- **Targets for the prover.** The automatic prover should return `PROVED` for
+  the `in_scope_sos` entries and `NO_CERT_FOUND` for everything else — never
+  `PROVED` for a `not_sos`, `out_of_scope_v1`, or `false` entry (soundness).
+  [`run_prover.py`](run_prover.py) enforces the soundness half over the whole
+  corpus and reports coverage; it currently proves 49 of the 58 `in_scope_sos`
+  targets.
 
 ## Entry format
 
