@@ -523,6 +523,142 @@
       "source": "AM-GM in ab, 1",
       "sos": [{"coeff": "1", "poly": "a*b - 1"}],
       "notes": "(ab-1)^2 >= 0."
+    },
+    {
+      "id": "quartic-fourth-power",
+      "claim": "a^4 + 6*a^2*b^2 + b^4 >= 4*a^3*b + 4*a*b^3",
+      "variables": ["a", "b"],
+      "degree": 4,
+      "category": "in_scope_sos",
+      "expected": "PROVED",
+      "domain": "all reals",
+      "source": "(a-b)^4 >= 0",
+      "sos": [{"coeff": "1", "poly": "(a - b)^2"}],
+      "notes": "The square of the polynomial (a-b)^2 is (a-b)^4."
+    },
+    {
+      "id": "two-fourth-ge-sq",
+      "claim": "2*a^4 + 2*b^4 >= (a^2 + b^2)^2",
+      "variables": ["a", "b"],
+      "degree": 4,
+      "category": "in_scope_sos",
+      "expected": "PROVED",
+      "domain": "all reals",
+      "source": "QM-AM in a^2, b^2",
+      "sos": [{"coeff": "1", "poly": "a^2 - b^2"}],
+      "notes": "2a^4+2b^4-(a^2+b^2)^2 = (a^2-b^2)^2."
+    },
+    {
+      "id": "power-mean-4th",
+      "claim": "8*(a^4 + b^4) >= (a + b)^4",
+      "variables": ["a", "b"],
+      "degree": 4,
+      "category": "in_scope_sos",
+      "expected": "PROVED",
+      "domain": "all reals",
+      "source": "power mean (order 4 vs 1)",
+      "sos": [{"coeff": "7", "poly": "(a - b)*(a + 5/7*b)"}, {"coeff": "24/7", "poly": "(a - b)*b"}],
+      "notes": "8(a^4+b^4)-(a+b)^4 = (a-b)^2 (7a^2+10ab+7b^2)."
+    },
+    {
+      "id": "four-var-two-products",
+      "claim": "a^4 + b^4 + c^4 + d^4 >= 2*a^2*c^2 + 2*b^2*d^2",
+      "variables": ["a", "b", "c", "d"],
+      "degree": 4,
+      "category": "in_scope_sos",
+      "expected": "PROVED",
+      "domain": "all reals",
+      "source": "sum of two squares of differences of squares",
+      "sos": [{"coeff": "1", "poly": "a^2 - c^2"}, {"coeff": "1", "poly": "b^2 - d^2"}],
+      "notes": "(a^2-c^2)^2 + (b^2-d^2)^2."
+    },
+    {
+      "id": "evan-sos-1.1",
+      "claim": "2/3*(a^2 + b^2 + c^2)^2 >= a^3*(b + c) + b^3*(c + a) + c^3*(a + b)",
+      "variables": ["a", "b", "c"],
+      "degree": 4,
+      "category": "in_scope_sos",
+      "expected": "PROVED",
+      "domain": "all reals",
+      "source": "Evan Chen, SOS handout, Example 1.1",
+      "notes": "True and SOS-provable (ternary quartic). Certificate omitted here; a target for the automatic prover (Milestone 5)."
+    },
+    {
+      "id": "cyclic-quartic-3ab",
+      "claim": "(a^2 + b^2 + c^2)^2 >= 3*(a^3*b + b^3*c + c^3*a)",
+      "variables": ["a", "b", "c"],
+      "degree": 4,
+      "category": "in_scope_sos",
+      "expected": "PROVED",
+      "domain": "all reals",
+      "source": "classical cyclic inequality (holds for all reals)",
+      "notes": "Famous sharp cyclic quartic (equality e.g. near (a,b,c) proportional to (1,3,2) permutations up to scaling of the tight family). SOS-provable; certificate omitted, a target for the prover."
+    },
+    {
+      "id": "motzkin",
+      "claim": "x^4*y^2 + x^2*y^4 + 1 >= 3*x^2*y^2",
+      "variables": ["x", "y"],
+      "degree": 6,
+      "category": "not_sos",
+      "expected": "NO_CERT_FOUND",
+      "domain": "all reals",
+      "source": "Motzkin (1967)",
+      "notes": "Nonnegative for all reals (AM-GM on x^4y^2, x^2y^4, 1) but NOT a sum of squares. Soundness test: an SOS engine must not return PROVED."
+    },
+    {
+      "id": "motzkin-homogeneous",
+      "claim": "x^4*y^2 + x^2*y^4 + z^6 >= 3*x^2*y^2*z^2",
+      "variables": ["x", "y", "z"],
+      "degree": 6,
+      "category": "not_sos",
+      "expected": "NO_CERT_FOUND",
+      "domain": "all reals",
+      "source": "Motzkin form (homogeneous)",
+      "notes": "The homogeneous Motzkin ternary sextic: nonnegative but not SOS."
+    },
+    {
+      "id": "choi-lam",
+      "claim": "x^4*y^2 + y^4*z^2 + z^4*x^2 >= 3*x^2*y^2*z^2",
+      "variables": ["x", "y", "z"],
+      "degree": 6,
+      "category": "not_sos",
+      "expected": "NO_CERT_FOUND",
+      "domain": "all reals",
+      "source": "Choi-Lam form",
+      "notes": "Nonnegative for all reals (AM-GM) but not a sum of squares."
+    },
+    {
+      "id": "false-3ab",
+      "claim": "a^2 + b^2 >= 3*a*b",
+      "variables": ["a", "b"],
+      "degree": 2,
+      "category": "false",
+      "expected": "NO_CERT_FOUND",
+      "domain": "false (a=b=1 gives 2 >= 3)",
+      "source": "soundness trap",
+      "notes": "FALSE. The prover must never return PROVED."
+    },
+    {
+      "id": "false-double-pairs",
+      "claim": "a^2 + b^2 + c^2 >= 2*(a*b + b*c + c*a)",
+      "variables": ["a", "b", "c"],
+      "degree": 2,
+      "category": "false",
+      "expected": "NO_CERT_FOUND",
+      "domain": "false (a=b=c=1 gives 3 >= 6)",
+      "source": "soundness trap",
+      "notes": "FALSE. The prover must never return PROVED."
+    },
+    {
+      "id": "false-ge-one",
+      "claim": "a^2 >= 1",
+      "variables": ["a"],
+      "degree": 2,
+      "category": "false",
+      "expected": "NO_CERT_FOUND",
+      "domain": "false (a=0 gives 0 >= 1)",
+      "source": "soundness trap",
+      "notes": "FALSE as a for-all-reals statement. The prover must never return PROVED."
     }
   ]
 }
