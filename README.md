@@ -61,7 +61,7 @@ Rational → Monomial → Polynomial → { Ast, Pretty }
 | `Checker` — `check_sos : poly → certificate → bool`, exact | ✅ done (trusted core) |
 | `Prover` — SOS search (Gram + rational LDLᵀ over a monomial basis, bounded grid search) | 🚧 proves 49/58 corpus targets; wide multi-var SDP case pending |
 | CLI — `--help`, `demo`, `prove`, `check` | ✅ done |
-| Tests — `test_polynomial`, `test_parser`, `test_checker` | ✅ 35 cases |
+| Tests — `test_polynomial`, `test_parser`, `test_checker`, `test_prover` | ✅ 79 cases |
 
 ### Canonical form (the key invariant)
 
@@ -93,11 +93,12 @@ dune runtest
 ```
 
 Covers polynomial arithmetic laws (`p+0=p`, `p·1=p`, commutativity,
-associativity, distributivity, …), normalisation; the parser (expressions,
-precedence, rationals, claims, malformed-input rejection) and JSON certificate
-loading; and the checker (accepts the classic three-variable certificate;
-rejects negative coefficients, wrong expansions, missing terms, and extra
-terms).
+associativity, distributivity, …) and normalisation; the parser (expressions,
+precedence, rationals, division / denominator-clearing, malformed-input
+rejection) and JSON certificate loading; the checker (accepts the classic
+three-variable certificate; rejects negative coefficients, wrong expansions,
+missing terms, extra terms); and the prover (degree-≤2 and even-power targets
+proved and re-checked, false / out-of-scope targets not proved).
 
 ## Run it
 
