@@ -1,0 +1,5 @@
+(executable
+ (name main)
+ (public_name a-geq-b)
+ (package a-geq-b)
+ (libraries a_geq_b))

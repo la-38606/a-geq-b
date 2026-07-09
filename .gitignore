@@ -1,0 +1,7 @@
+# Dune build artifacts
+_build/
+*.install
+*.merlin
+
+# OCaml / opam local switch
+_opam/

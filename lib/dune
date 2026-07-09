@@ -1,0 +1,5 @@
+(library
+ (name a_geq_b)
+ ; zarith  -> exact rational/integer arithmetic (module Q, Z), the trusted core.
+ ; yojson  -> (de)serialising certificates to/from JSON.
+ (libraries zarith yojson))
