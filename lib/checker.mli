@@ -19,6 +19,9 @@ type failure =
       { target : Polynomial.t
       ; got : Polynomial.t
       }
+  | Unknown_constraint of Polynomial.t
+  (** a constrained certificate scaled a polynomial that is not a declared
+      hypothesis of the matching kind *)
 
 type outcome =
   | Verified
@@ -33,3 +36,25 @@ val check : Polynomial.t -> Certificate.t -> outcome
 (** [true] iff the certificate proves [target >= 0]. The predicate the CLI must
     consult before printing [PROVED]. *)
 val check_sos : Polynomial.t -> Certificate.t -> bool
+
+(** The polynomial [base + sum_i sigma_i g_i + sum_j lambda_j h_j] denoted by a
+    constrained certificate. *)
+val expand_constrained : Constrained.t -> Polynomial.t
+
+(** Verify a Positivstellensatz certificate that [target >= 0] on the region cut
+    out by [hypotheses]: every sum-of-squares part has nonnegative coefficients,
+    every scaled polynomial is a declared hypothesis of the matching kind, and
+    [target] equals the certificate's expansion exactly. *)
+val check_constrained
+  :  hypotheses:Constrained.hypothesis list
+  -> Polynomial.t
+  -> Constrained.t
+  -> outcome
+
+(** [true] iff the constrained certificate proves [target >= 0] on the region cut
+    out by [hypotheses]. Consult before printing [PROVED]. *)
+val check_constrained_ok
+  :  hypotheses:Constrained.hypothesis list
+  -> Polynomial.t
+  -> Constrained.t
+  -> bool

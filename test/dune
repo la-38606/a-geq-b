@@ -4,5 +4,6 @@
   test_parser
   test_checker
   test_prover
-  test_lean_export)
+  test_lean_export
+  test_constrained)
  (libraries a_geq_b alcotest))

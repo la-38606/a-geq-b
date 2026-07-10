@@ -23,6 +23,9 @@ type failure =
       { target : Polynomial.t
       ; got : Polynomial.t
       } (** all coefficients were fine, but [sum c_i q_i^2] did not equal [p] *)
+  | Unknown_constraint of Polynomial.t
+  (** a constrained certificate scaled a polynomial that is not a declared
+      hypothesis of the matching kind, so its sign is not guaranteed *)
 
 type outcome =
   | Verified
@@ -51,6 +54,98 @@ let check (target : Polynomial.t) (cert : Certificate.t) : outcome =
     This is the predicate the CLI must consult before printing [PROVED]. *)
 let check_sos (target : Polynomial.t) (cert : Certificate.t) : bool =
   match check target cert with
+  | Verified -> true
+  | Rejected _ -> false
+;;
+
+(* --- constrained (Positivstellensatz) certificates ---------------------- *)
+
+(** First negative coefficient in a sum-of-squares, if any. *)
+let negative_coeff (sos : Certificate.t) : Rational.t option =
+  List.find_map
+    (fun (t : Certificate.term) ->
+       if Rational.is_nonneg t.coeff then None else Some t.coeff)
+    sos
+;;
+
+(** The polynomial [base + sum_i sigma_i * g_i + sum_j lambda_j * h_j] denoted by
+    a constrained certificate. *)
+let expand_constrained (cert : Constrained.t) : Polynomial.t =
+  let contribution : Constrained.product -> Polynomial.t = function
+    | Times_nonneg { multiplier; nonneg } -> Polynomial.mul (expand multiplier) nonneg
+    | Times_zero { multiplier; zero } -> Polynomial.mul multiplier zero
+  in
+  Polynomial.sum (expand cert.base :: List.map contribution cert.products)
+;;
+
+(** Verify a Positivstellensatz certificate that [target >= 0] on the region cut
+    out by [hypotheses].  It checks that
+
+    - every sum-of-squares part ([base] and each {!Constrained.Times_nonneg}
+      multiplier) has only nonnegative coefficients;
+    - every scaled polynomial is a declared hypothesis of the matching kind — a
+      [Nonneg] hypothesis for a [Times_nonneg] term, a [Zero] hypothesis for a
+      [Times_zero] term (structural polynomial equality); and
+    - [target] equals the certificate's expansion {i exactly}.
+
+    Given those, on any point of the region [base >= 0], each [sigma_i g_i >= 0]
+    (nonnegative times a nonnegative hypothesis), and each [lambda_j h_j = 0]
+    (anything times a vanishing hypothesis); so [target >= 0] there.  As with
+    {!check}, soundness rests only on exact arithmetic and structural equality. *)
+let check_constrained
+      ~(hypotheses : Constrained.hypothesis list)
+      (target : Polynomial.t)
+      (cert : Constrained.t)
+  : outcome
+  =
+  let sos_parts =
+    cert.base
+    :: List.filter_map
+         (function
+           | Constrained.Times_nonneg { multiplier; _ } -> Some multiplier
+           | Times_zero _ -> None)
+         cert.products
+  in
+  match List.find_map negative_coeff sos_parts with
+  | Some c -> Rejected (Negative_coefficient c)
+  | None ->
+    let is_hypothesis (matches : Constrained.hypothesis -> bool) =
+      List.exists matches hypotheses
+    in
+    let undeclared : Constrained.product -> Polynomial.t option = function
+      | Times_nonneg { nonneg; _ } ->
+        if
+          is_hypothesis (function
+            | Constrained.Nonneg g -> Polynomial.equal g nonneg
+            | Zero _ -> false)
+        then None
+        else Some nonneg
+      | Times_zero { zero; _ } ->
+        if
+          is_hypothesis (function
+            | Constrained.Zero h -> Polynomial.equal h zero
+            | Nonneg _ -> false)
+        then None
+        else Some zero
+    in
+    (match List.find_map undeclared cert.products with
+     | Some g -> Rejected (Unknown_constraint g)
+     | None ->
+       let got = expand_constrained cert in
+       if Polynomial.equal target got
+       then Verified
+       else Rejected (Mismatch { target; got }))
+;;
+
+(** [true] iff the constrained certificate proves [target >= 0] on the region cut
+    out by [hypotheses]. The predicate the CLI must consult before [PROVED]. *)
+let check_constrained_ok
+      ~(hypotheses : Constrained.hypothesis list)
+      (target : Polynomial.t)
+      (cert : Constrained.t)
+  : bool
+  =
+  match check_constrained ~hypotheses target cert with
   | Verified -> true
   | Rejected _ -> false
 ;;

@@ -107,6 +107,10 @@ let string_of_failure ~vars = function
       \  got:      %s"
       (Pretty.string_of_poly vars target)
       (Pretty.string_of_poly vars got)
+  | Checker.Unknown_constraint g ->
+    Printf.sprintf
+      "the certificate scales %s, which is not a declared hypothesis"
+      (Pretty.string_of_poly vars g)
 ;;
 
 (* --- commands ----------------------------------------------------------- *)
