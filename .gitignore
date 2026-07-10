@@ -18,3 +18,6 @@ doc/*.log
 doc/*.out
 doc/*.toc
 doc/*.synctex.gz
+
+# Lean build artifacts and fetched packages (Mathlib); keep lake-manifest.json
+lean/.lake/
