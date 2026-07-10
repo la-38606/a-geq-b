@@ -5,6 +5,7 @@
     - [demo]              the built-in hardcoded proof
     - [prove "<ineq>"]    parse + (attempt to) auto-prove an inequality
     - [check <file.json>] load and check a JSON certificate
+    - [lean "<ineq>"]     prove, then emit a checkable Lean proof to stdout
 
     Exit statuses mirror the reported [Status:] line:
     PROVED=0, NO_CERT_FOUND=2, INVALID_INPUT=3, CHECK_FAILED=4. *)
@@ -33,6 +34,7 @@ let usage () =
        ; "  a-geq-b demo                       Run the built-in hello-world proof"
        ; "  a-geq-b prove \"a^2+b^2 >= 2*a*b\"    Parse and try to prove an inequality"
        ; "  a-geq-b check cert.json            Load and check a JSON certificate"
+       ; "  a-geq-b lean \"a^2 >= 2*a-1\" [name]  Emit a checkable Lean proof to stdout"
        ; ""
        ])
 ;;
@@ -48,16 +50,23 @@ type status =
   | Invalid_input
   | Check_failed
 
+let code_of_status = function
+  | Proved -> 0
+  | No_cert_found -> 2
+  | Invalid_input -> 3
+  | Check_failed -> 4
+;;
+
 let finish (status : status) =
-  let name, code =
+  let name =
     match status with
-    | Proved -> "PROVED", 0
-    | No_cert_found -> "NO_CERT_FOUND", 2
-    | Invalid_input -> "INVALID_INPUT", 3
-    | Check_failed -> "CHECK_FAILED", 4
+    | Proved -> "PROVED"
+    | No_cert_found -> "NO_CERT_FOUND"
+    | Invalid_input -> "INVALID_INPUT"
+    | Check_failed -> "CHECK_FAILED"
   in
   Printf.printf "Status: %s\n" name;
-  exit code
+  exit (code_of_status status)
 ;;
 
 (* --- shared printing ---------------------------------------------------- *)
@@ -166,11 +175,46 @@ let run_check (path : string) =
        finish Check_failed)
 ;;
 
+(* Emit a Lean proof to stdout (and nothing else on stdout, so the output can be
+   redirected straight into a .lean file). Diagnostics go to stderr; the exit
+   code still follows the shared status -> code mapping. *)
+let run_lean ~(name : string) (input : string) =
+  let fail status msg =
+    Printf.eprintf "%s\n" msg;
+    exit (code_of_status status)
+  in
+  match Parser.parse input with
+  | Error msg ->
+    fail Invalid_input (Printf.sprintf "Could not parse the inequality: %s" msg)
+  | Ok claim ->
+    (match Normalizer.poly_of_claim claim with
+     | exception Invalid_argument msg ->
+       fail Invalid_input (Printf.sprintf "Could not reduce the inequality: %s" msg)
+     | vars, target ->
+       (match Prover.prove target with
+        | Prover.Proved cert ->
+          (* Untrusted output MUST pass the trusted checker before we emit it. *)
+          if Checker.check_sos target cert
+          then (
+            print_string (Lean_export.theorem ~name ~vars target cert);
+            exit (code_of_status Proved))
+          else
+            fail
+              Check_failed
+              "The prover proposed a certificate, but the checker rejected it."
+        | Prover.No_certificate_found ->
+          fail
+            No_cert_found
+            "No supported sum-of-squares certificate was found (not a disproof)."))
+;;
+
 let () =
   match Array.to_list Sys.argv with
   | [ _; "demo" ] -> run_demo ()
   | _ :: "prove" :: [ input ] -> run_prove input
   | _ :: "check" :: [ path ] -> run_check path
+  | _ :: "lean" :: [ input ] -> run_lean ~name:"aeqb" input
+  | _ :: "lean" :: [ input; name ] -> run_lean ~name input
   | [ _ ] | [ _; ("--help" | "-h" | "help") ] -> usage ()
   | _ :: cmd :: _ ->
     Printf.eprintf "Unknown or malformed command: %s\n\n" cmd;
