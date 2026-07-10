@@ -1,3 +1,8 @@
 (tests
- (names test_polynomial test_parser test_checker test_prover)
+ (names
+  test_polynomial
+  test_parser
+  test_checker
+  test_prover
+  test_lean_export)
  (libraries a_geq_b alcotest))

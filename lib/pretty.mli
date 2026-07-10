@@ -6,6 +6,10 @@
 
 type vars = string list
 
+(** Name for the [i]-th variable ([List.nth vars i], or a fallback ["x<i+1>"]
+    when [i] is beyond [vars]). *)
+val name_of : vars -> int -> string
+
 val string_of_monomial : vars -> Monomial.t -> string
 val string_of_poly : vars -> Polynomial.t -> string
 val latex_of_monomial : vars -> Monomial.t -> string
