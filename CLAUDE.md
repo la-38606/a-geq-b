@@ -59,8 +59,9 @@ lib/
   normalizer.ml   Ast → Polynomial; claim A⋛B → target p≥0
   pretty.ml       readable + LaTeX rendering
   certificate.ml  SOS term data + rendering + JSON read/write
-  checker.ml      TRUSTED exact checker: check_sos
-  prover.ml       untrusted SOS search (Gram + rational LDLᵀ + grid search)
+  checker.ml      TRUSTED exact checker: check_sos + check_constrained
+  constrained.ml  hypotheses + Positivstellensatz certificate (data, JSON, LaTeX)
+  prover.ml       untrusted SOS search (Gram + rational LDLᵀ + grid) + constrained
   lean_export.ml  untrusted: certificate → checkable Lean proof (ring + positivity)
 bin/main.ml       CLI (--help, demo, prove, check, lean)
 test/             test_{polynomial,parser,checker,prover,lean_export}.ml (Alcotest)
@@ -98,6 +99,12 @@ installing zarith).
   trusted checker, so the search cannot produce a false `PROVED`.
 - The normalizer also **clears denominators**, so rational-function inequalities
   (`a/(b+c) + ... >= 3/2`) parse and reduce to a polynomial target.
+- **Constrained inequalities (Positivstellensatz)** — 🚧 first cut. Claims carry
+  `given g >= 0, h = 0, ...` side conditions; `Checker.check_constrained`
+  (trusted) verifies `p = base + Σ σ_i g_i + Σ λ_j h_j`, and
+  `Prover.prove_constrained` searches with constant hypothesis-multipliers + an
+  SOS base. Proves e.g. `a^2+b^2 >= 2 given a*b = 1`. Products of hypotheses
+  (Schmüdgen) and polynomial multipliers are future work.
 - **Lean 4 formally verified checker** (`lean/`) — ✅ the trusted core's soundness
   is machine-proved: `checkSOS_sound : checkSOS p cert = true -> forall x,
   0 <= aeval x p`, axiom-clean (no `sorry`). See `lean/README.md`.
@@ -121,11 +128,16 @@ Ordered; each keeps the checker as the sole authority.
    rounds the approximate PSD matrix to exact rationals and re-verifies with the
    checker. This is the brief's Stage D and the principled home for Python.
 
-2. **Constrained inequalities (Positivstellensatz).** Accept side constraints
-   (`a >= 0`, `abc = 1`, triangle, …) and search for certificates
-   `p = sigma_0 + sum_i sigma_i * g_i` (each `sigma` an SOS, `g_i` a constraint).
-   Unlocks the 50 `out_of_scope_v1` corpus targets (AM-GM, Schur, Nesbitt, the
-   IMO/Iran/Japan/book problems). Largest capability jump.
+2. **Constrained inequalities (Positivstellensatz)** — 🚧 first cut landed.
+   Claims accept `given g >= 0, h = 0, ...` side conditions; the trusted
+   `Checker.check_constrained` verifies `p = sigma_0 + sum_i sigma_i g_i +
+   sum_j lambda_j h_j` (each `sigma` an SOS), and `Prover.prove_constrained`
+   searches with constant hypothesis-multipliers over an SOS base. Remaining
+   work to unlock the 50 `out_of_scope_v1` corpus targets (AM-GM, Schur,
+   Nesbitt, the IMO/Iran/Japan/book problems): **products of hypotheses**
+   (Schmüdgen, e.g. `a*b >= 0` from `a,b >= 0`) and **polynomial multipliers**
+   (e.g. `a^3 >= b^3` from `a = b` needs `a^2+ab+b^2`), which in turn want the
+   wider SDP search from item 1. Largest remaining capability jump.
 
 3. **Formally verified checker in Lean 4** — ✅ both directions have a first cut.
    Upgrade the trusted core from "small and audited" to "machine-verified."

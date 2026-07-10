@@ -60,6 +60,36 @@ individual proof can be **exported as a machine-checked Lean theorem**:
 kernel checks (`ring` for the SOS identity, `positivity` for nonnegativity). See
 [lean/README.md](lean/README.md).
 
+## Constrained inequalities (Positivstellensatz)
+
+Many inequalities hold only on a region — `a ≥ 0`, `abc = 1`, `a + b + c = 1`.
+A≥B proves `p ≥ 0` on the set cut out by hypotheses `gᵢ ≥ 0` and `hⱼ = 0` with a
+**Positivstellensatz certificate**
+
+```
+p = σ₀ + Σᵢ σᵢ·gᵢ + Σⱼ λⱼ·hⱼ,   σ₀, σᵢ sums of squares, λⱼ arbitrary.
+```
+
+On the feasible set each `σᵢ·gᵢ ≥ 0` and each `λⱼ·hⱼ = 0`, so `p ≥ 0` there. The
+trusted checker (`Checker.check_constrained`) verifies the exact identity, that
+every `σ` has nonnegative coefficients, and that each scaled polynomial is a
+declared hypothesis of the matching kind — nothing else can license `PROVED`.
+
+Write side conditions with `given`:
+
+```
+a-geq-b prove "a^2 + b^2 >= 2 given a*b = 1"
+  ...  = (a - b)^2 + 2*(a*b - 1)
+
+a-geq-b prove "a + b >= 0 given a >= 0, b >= 0"
+a-geq-b check examples/constrained.cert.json
+```
+
+The constrained search is a first cut — constant hypothesis-multipliers with an
+SOS base — so it declines cases needing products of hypotheses (Schmüdgen) or
+polynomial multipliers. Those remain future work; the checker already accepts
+the full certificate shape.
+
 ## What is implemented in this skeleton
 
 | Area | Status |
@@ -72,10 +102,11 @@ kernel checks (`ring` for the SOS identity, `positivity` for nonnegativity). See
 | `Normalizer` — `Ast → Polynomial`; claim `A ⋛ B` → `p ≥ 0`, clearing denominators | ✅ done |
 | `Pretty` — readable + LaTeX rendering of polynomials/certificates | ✅ done |
 | `Certificate` — SOS term data, rendering, JSON read + write | ✅ done |
-| `Checker` — `check_sos : poly → certificate → bool`, exact | ✅ done (trusted core) |
-| `Prover` — SOS search (Gram + rational LDLᵀ over a monomial basis, bounded grid search) | 🚧 proves 53/63 corpus targets; wide multi-var SDP case pending |
+| `Checker` — `check_sos` and `check_constrained` (Positivstellensatz), exact | ✅ done (trusted core) |
+| `Constrained` — hypotheses + Positivstellensatz certificate, JSON/LaTeX | ✅ done |
+| `Prover` — SOS search (Gram + rational LDLᵀ, grid search) + first-cut constrained search | 🚧 53/63 SOS corpus; constant-multiplier constrained search |
 | CLI — `--help`, `demo`, `prove`, `check`, `lean` (export a Lean proof) | ✅ done |
-| Tests — `test_polynomial`, `test_parser`, `test_checker`, `test_prover`, `test_lean_export` | ✅ 81 cases |
+| Tests — `test_{polynomial,parser,checker,prover,lean_export,constrained}` | ✅ 107 cases |
 
 ### Canonical form (the key invariant)
 
