@@ -10,7 +10,12 @@
     and each [c_i] is nonnegative, that identity proves [p >= 0] for all reals.
     Soundness depends only on exact rational arithmetic, exact polynomial
     multiplication and addition, and structural equality -- nothing about how the
-    certificate was found. *)
+    certificate was found.
+
+    {!check_constrained} extends this to {i constrained} inequalities: it verifies
+    a Positivstellensatz certificate [p = base + sum_i sigma_i g_i +
+    sum_j lambda_j h_j] proving [p >= 0] on the region cut out by hypotheses
+    [g_i >= 0] and [h_j = 0]. See {!Constrained}. *)
 
 (** Why a certificate was rejected. *)
 type failure =
