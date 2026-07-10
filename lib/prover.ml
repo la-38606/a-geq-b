@@ -19,6 +19,10 @@ type result =
   | Proved of Certificate.t
   | No_certificate_found (** not disproof — just "this prover found nothing" *)
 
+type constrained_result =
+  | Proved_constrained of Constrained.t
+  | No_constrained_certificate
+
 (* ---------------------------------------------------------------------- *)
 (* Stage B: degree-<=2 targets via Gram matrix + rational LDL^T.           *)
 (*                                                                         *)
@@ -321,6 +325,121 @@ let prove (p : Polynomial.t) : result =
        | _ -> go rest)
   in
   go bases
+;;
+
+(* ---------------------------------------------------------------------- *)
+(* Constrained search (Positivstellensatz), first cut.                     *)
+(*                                                                         *)
+(* We look for   p = base + sum_i c_i g_i + sum_j d_j h_j   with CONSTANT  *)
+(* multipliers: c_i >= 0 on the nonnegative hypotheses g_i, and d_j of any *)
+(* sign on the vanishing hypotheses h_j.  For a fixed choice of constants  *)
+(* the residual  r = p - sum c_i g_i - sum d_j h_j  must be a sum of       *)
+(* squares, which we hand to the unconstrained {!prove}.  The constants    *)
+(* are searched over a bounded grid, with at most two hypotheses active at *)
+(* once (plus a uniform choice across all nonnegative hypotheses, which    *)
+(* catches the common symmetric case).  A polynomial (non-constant)        *)
+(* multiplier — needed e.g. for [a^3 >= b^3 given a = b] — is future work. *)
+(* Every assembled certificate is re-checked by the trusted {!Checker}.    *)
+(* ---------------------------------------------------------------------- *)
+
+let nonneg_muls : Rational.t list =
+  [ Rational.one
+  ; Rational.of_int 2
+  ; Rational.of_int 3
+  ; Rational.of_ints 1 2
+  ; Rational.of_ints 3 2
+  ]
+;;
+
+let signed_muls : Rational.t list =
+  List.concat_map (fun q -> [ q; Rational.neg q ]) nonneg_muls
+;;
+
+let hyp_poly : Constrained.hypothesis -> Polynomial.t = function
+  | Nonneg g -> g
+  | Zero h -> h
+;;
+
+let mul_values : Constrained.hypothesis -> Rational.t list = function
+  | Nonneg _ -> nonneg_muls
+  | Zero _ -> signed_muls
+;;
+
+(* The certificate product for scaling [hyp] by the constant [v]. *)
+let product_of ((hyp, v) : Constrained.hypothesis * Rational.t) : Constrained.product =
+  match hyp with
+  | Nonneg g ->
+    Constrained.times_nonneg ~multiplier:[ Certificate.term v Polynomial.one ] ~nonneg:g
+  | Zero h -> Constrained.times_zero ~multiplier:(Polynomial.const v) ~zero:h
+;;
+
+(* Reduce [target] by the active (hypothesis, constant) assignments, prove the
+   residual as an SOS base, assemble the certificate, and re-check it. *)
+let try_assignment
+      ~(hypotheses : Constrained.hypothesis list)
+      (target : Polynomial.t)
+      (active : (Constrained.hypothesis * Rational.t) list)
+  : Constrained.t option
+  =
+  let subtract =
+    List.fold_left
+      (fun acc (hyp, v) -> Polynomial.add acc (Polynomial.scalar_mul v (hyp_poly hyp)))
+      Polynomial.zero
+      active
+  in
+  match prove (Polynomial.sub target subtract) with
+  | No_certificate_found -> None
+  | Proved base ->
+    let cert = Constrained.make ~base ~products:(List.map product_of active) in
+    if Checker.check_constrained_ok ~hypotheses target cert then Some cert else None
+;;
+
+(* Unordered pairs of a list, preserving element identity. *)
+let rec pairs : 'a list -> ('a * 'a) list = function
+  | [] -> []
+  | x :: xs -> List.map (fun y -> x, y) xs @ pairs xs
+;;
+
+(** Attempt a Positivstellensatz certificate that [target >= 0] on the region cut
+    out by [hypotheses], using constant hypothesis-multipliers and the
+    unconstrained SOS {!prove} on the residual (see the note above). Any
+    candidate is re-checked by the trusted {!Checker}. *)
+let prove_constrained ~(hypotheses : Constrained.hypothesis list) (target : Polynomial.t)
+  : constrained_result
+  =
+  (* Candidate active-assignments, cheapest first. *)
+  let none = [ [] ] in
+  let uniform =
+    let nonnegs =
+      List.filter
+        (function
+          | Constrained.Nonneg _ -> true
+          | Zero _ -> false)
+        hypotheses
+    in
+    if List.length nonnegs >= 2
+    then List.map (fun c -> List.map (fun h -> h, c) nonnegs) nonneg_muls
+    else []
+  in
+  let singles =
+    List.concat_map (fun h -> List.map (fun v -> [ h, v ]) (mul_values h)) hypotheses
+  in
+  let doubles =
+    List.concat_map
+      (fun (h1, h2) ->
+         List.concat_map
+           (fun v1 -> List.map (fun v2 -> [ h1, v1; h2, v2 ]) (mul_values h2))
+           (mul_values h1))
+      (pairs hypotheses)
+  in
+  let rec go = function
+    | [] -> No_constrained_certificate
+    | active :: rest ->
+      (match try_assignment ~hypotheses target active with
+       | Some cert -> Proved_constrained cert
+       | None -> go rest)
+  in
+  go (none @ uniform @ singles @ doubles)
 ;;
 
 (* ---------------------------------------------------------------------- *)

@@ -174,14 +174,31 @@ let run_prove (input : string) =
      | vars, target ->
        (match claim.Ast.hyps with
         | _ :: _ ->
-          (* Constrained search (Positivstellensatz) is not implemented yet; be
-             honest rather than silently proving the unconstrained target. *)
-          print_preamble ~claim:input ~vars ~target;
-          print_string
-            "This claim has side conditions ('given ...'). Automatic\n\
-            \  Positivstellensatz search is not implemented yet; you can still\n\
-            \  verify a constrained certificate JSON with 'check'.\n\n";
-          finish No_cert_found
+          (* Constrained claim: search for a Positivstellensatz certificate. *)
+          (match Constrained.hypotheses_of_claim vars claim with
+           | exception Invalid_argument msg ->
+             Printf.eprintf "Could not reduce a side condition: %s\n" msg;
+             finish Invalid_input
+           | hypotheses ->
+             (match Prover.prove_constrained ~hypotheses target with
+              | Prover.Proved_constrained cert ->
+                (* Untrusted output MUST pass the trusted checker before PROVED. *)
+                if Checker.check_constrained_ok ~hypotheses target cert
+                then (
+                  print_proved_constrained ~claim:input ~vars ~hypotheses ~target ~cert;
+                  finish Proved)
+                else (
+                  print_preamble ~claim:input ~vars ~target;
+                  print_string
+                    "The prover proposed a certificate, but the checker rejected it.\n\n";
+                  finish Check_failed)
+              | Prover.No_constrained_certificate ->
+                print_preamble ~claim:input ~vars ~target;
+                print_string
+                  "No supported Positivstellensatz certificate was found. This is not\n\
+                  \  a disproof: the first-cut constrained search only tries constant\n\
+                  \  hypothesis-multipliers with a sum-of-squares base.\n\n";
+                finish No_cert_found))
         | [] ->
           (match Prover.prove target with
            | Prover.Proved cert ->

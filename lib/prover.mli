@@ -14,6 +14,21 @@ type result =
     by the trusted {!Checker}. *)
 val prove : Polynomial.t -> result
 
+type constrained_result =
+  | Proved_constrained of Constrained.t
+  | No_constrained_certificate
+
+(** Attempt a Positivstellensatz certificate that [target >= 0] on the region cut
+    out by [hypotheses]. First cut: constant hypothesis-multipliers (nonnegative
+    on [Nonneg] hypotheses, any sign on [Zero] hypotheses) over a bounded grid,
+    with the unconstrained {!prove} finding the sum-of-squares base on the
+    residual. Any candidate is re-checked by the trusted {!Checker}, so the
+    search can only miss a proof, never produce a false one. *)
+val prove_constrained
+  :  hypotheses:Constrained.hypothesis list
+  -> Polynomial.t
+  -> constrained_result
+
 (** {2 Built-in "hello world" example}
 
     [a^2 + b^2 + c^2 >= a*b + b*c + c*a], with the classic three-square

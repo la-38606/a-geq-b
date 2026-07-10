@@ -80,6 +80,56 @@ let unprovable_cases =
   ]
 ;;
 
+(* --- constrained (Positivstellensatz) prover ---------------------------- *)
+
+(* Parse a constrained claim into its (hypotheses, target). *)
+let constrained (s : string) : Constrained.hypothesis list * Polynomial.t =
+  match Parser.parse s with
+  | Ok c ->
+    let ctx, p = Normalizer.poly_of_claim c in
+    Constrained.hypotheses_of_claim ctx c, p
+  | Error m -> Alcotest.failf "test setup: could not parse %S: %s" s m
+;;
+
+let provable_c (s : string) () =
+  let hypotheses, p = constrained s in
+  match Prover.prove_constrained ~hypotheses p with
+  | Prover.Proved_constrained cert ->
+    Alcotest.(check bool)
+      ("checker accepts constrained proof for: " ^ s)
+      true
+      (Checker.check_constrained_ok ~hypotheses p cert)
+  | Prover.No_constrained_certificate -> Alcotest.failf "expected to prove: %s" s
+;;
+
+let not_provable_c (s : string) () =
+  let hypotheses, p = constrained s in
+  match Prover.prove_constrained ~hypotheses p with
+  | Prover.No_constrained_certificate -> ()
+  | Prover.Proved_constrained _ -> Alcotest.failf "prover unsoundly proved: %s" s
+;;
+
+(* Handled by the first cut: constant multipliers + an SOS base. *)
+let provable_constrained_cases =
+  [ "a^2 >= 0" (* no side conditions: base only *)
+  ; "a + b >= 0 given a >= 0, b >= 0" (* pair of nonneg hypotheses *)
+  ; "2*a + 3*b >= 0 given a >= 0, b >= 0" (* different constant multipliers *)
+  ; "a + b + c >= 0 given a >= 0, b >= 0, c >= 0" (* uniform over 3 nonnegs *)
+  ; "a >= 0 given a - 1 >= 0" (* nonneg hyp plus a constant base *)
+  ; "a^2 + b^2 >= 2 given a*b = 1" (* equality hyp, constant multiplier *)
+  ]
+;;
+
+(* Beyond the first cut, so must return No_constrained_certificate — never a
+   false proof: products of hypotheses (Schmüdgen), polynomial multipliers, and
+   claims a hypothesis does not actually support. *)
+let unprovable_constrained_cases =
+  [ "a*b >= 0 given a >= 0, b >= 0" (* needs the product a*b *)
+  ; "a^3 >= b^3 given a = b" (* needs a polynomial multiplier a^2+ab+b^2 *)
+  ; "a >= 0 given b >= 0" (* irrelevant hypothesis; a may be negative *)
+  ]
+;;
+
 let () =
   Alcotest.run
     "prover"
@@ -88,5 +138,13 @@ let () =
     ; ( "does not prove"
       , List.map (fun s -> Alcotest.test_case s `Quick (not_provable s)) unprovable_cases
       )
+    ; ( "proves (constrained)"
+      , List.map
+          (fun s -> Alcotest.test_case s `Quick (provable_c s))
+          provable_constrained_cases )
+    ; ( "does not prove (constrained)"
+      , List.map
+          (fun s -> Alcotest.test_case s `Quick (not_provable_c s))
+          unprovable_constrained_cases )
     ]
 ;;
