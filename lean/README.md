@@ -43,12 +43,40 @@ The proof is complete and axiom-clean:
 
 i.e. only the three standard Mathlib axioms — no `sorry`.
 
+## Emitting checkable Lean proofs
+
+Beyond verifying the *checker*, A≥B can export each individual proof as a Lean
+theorem. `a-geq-b lean "<inequality>" [name]` auto-proves the inequality,
+re-checks the certificate with the trusted OCaml checker, and writes a
+self-contained Lean file to stdout:
+
+```
+$ a-geq-b lean "a^2 + b^2 >= 2*a*b" aeqb_sq_diff
+import Mathlib
+
+theorem aeqb_sq_diff (a b : ℝ) : (0 : ℝ) ≤ a^2 - 2*a*b + b^2 := by
+  have h : (a^2 - 2*a*b + b^2 : ℝ) = (1) * (a - b) ^ 2 := by ring
+  rw [h]
+  positivity
+```
+
+The proof rewrites `p` into its sum-of-squares form by `ring` — an identity that
+holds *because* the checker already verified `p = ∑ cᵢ qᵢ²` — and closes
+`0 ≤ ∑ cᵢ qᵢ²` by `positivity`. This is untrusted OUTPUT: a bogus certificate
+would yield a Lean file that fails to compile, never a false theorem.
+
+[`Proofs.lean`](Proofs.lean) collects such proofs for a spread of inequalities
+(1–3 variables, degree 2 and 4, rational coefficients); `lake build` has Lean's
+kernel check every one. Regenerate it straight from the prover with
+[`regen.sh`](regen.sh). Each theorem is thus machine-checked twice: the exact
+rational identity in OCaml, then `ring` / `positivity` in Lean.
+
 ## Build
 
 ```
 cd lean
 lake exe cache get   # fetch prebuilt Mathlib (first time)
-lake build           # elaborates AeqbCheck.lean; ~70s with cache
+lake build           # AeqbCheck.lean (~70s) + Proofs.lean (~250s, imports Mathlib)
 ```
 
 Pinned to `leanprover/lean4:v4.31.0` (see `lean-toolchain`); the exact Mathlib
@@ -60,7 +88,7 @@ Mathlib live under `.lake/` (git-ignored).
 `AeqbCheck.checkSOS` is the specification of `Checker.check_sos`: the same two
 conditions (every coefficient `≥ 0`; `p` equals the sum-of-squares expansion),
 over exact rationals. The OCaml version is the fast executable used in the tool;
-this Lean version is the *proof* that the specification is sound. Natural next
-steps: have the OCaml prover emit a Lean proof term per certificate (so each
-`A≥B` proof becomes a machine-checked Lean theorem), or run the Lean checker as
-an independent oracle beside the OCaml one.
+this Lean version is the *proof* that the specification is sound. The prover now
+also emits a Lean proof per certificate (see above), so each `A≥B` proof can
+become a machine-checked Lean theorem. A further step would be to run this Lean
+checker as an independent oracle beside the OCaml one.

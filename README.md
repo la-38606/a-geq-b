@@ -54,7 +54,10 @@ system design, see the technical report:
 
 The trusted checker's soundness is **formally verified in Lean 4 / Mathlib**:
 [`lean/AeqbCheck.lean`](lean/AeqbCheck.lean) proves
-`checkSOS p cert = true → ∀ x, 0 ≤ aeval x p` (axiom-clean, no `sorry`). See
+`checkSOS p cert = true → ∀ x, 0 ≤ aeval x p` (axiom-clean, no `sorry`). And each
+individual proof can be **exported as a machine-checked Lean theorem**:
+`a-geq-b lean "a^2+b^2 >= 2*a*b"` emits a self-contained `.lean` file that Lean's
+kernel checks (`ring` for the SOS identity, `positivity` for nonnegativity). See
 [lean/README.md](lean/README.md).
 
 ## What is implemented in this skeleton
@@ -71,8 +74,8 @@ The trusted checker's soundness is **formally verified in Lean 4 / Mathlib**:
 | `Certificate` — SOS term data, rendering, JSON read + write | ✅ done |
 | `Checker` — `check_sos : poly → certificate → bool`, exact | ✅ done (trusted core) |
 | `Prover` — SOS search (Gram + rational LDLᵀ over a monomial basis, bounded grid search) | 🚧 proves 53/63 corpus targets; wide multi-var SDP case pending |
-| CLI — `--help`, `demo`, `prove`, `check` | ✅ done |
-| Tests — `test_polynomial`, `test_parser`, `test_checker`, `test_prover` | ✅ 79 cases |
+| CLI — `--help`, `demo`, `prove`, `check`, `lean` (export a Lean proof) | ✅ done |
+| Tests — `test_polynomial`, `test_parser`, `test_checker`, `test_prover`, `test_lean_export` | ✅ 81 cases |
 
 ### Canonical form (the key invariant)
 
