@@ -171,6 +171,14 @@ let test_of_string_malformed () =
   | Ok _ -> Alcotest.fail "expected Error for unknown hypothesis kind"
 ;;
 
+let test_of_string_missing_certificate () =
+  (* No 'certificate' field: must be an Error, never a raised exception. *)
+  let src = {|{ "claim":"a >= 0", "variables":["a"], "hypotheses":[] }|} in
+  match Constrained.of_string src with
+  | Error _ -> ()
+  | Ok _ -> Alcotest.fail "expected Error for a missing 'certificate' field"
+;;
+
 (* --- parsing side conditions end-to-end --- *)
 
 (* Parse [src], normalize it, and check [cert] against the resulting target and
@@ -238,6 +246,10 @@ let () =
             `Quick
             test_of_string_corrupted
         ; Alcotest.test_case "malformed input is an Error" `Quick test_of_string_malformed
+        ; Alcotest.test_case
+            "missing 'certificate' is an Error"
+            `Quick
+            test_of_string_missing_certificate
         ] )
     ; ( "given"
       , [ Alcotest.test_case "nonneg side condition" `Quick test_given_nonneg

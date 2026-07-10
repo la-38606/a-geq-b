@@ -263,7 +263,11 @@ let of_json (json : Yojson.Safe.t) : (parsed, string) result =
       try json |> U.member "hypotheses" |> U.to_list |> List.map parse_hypothesis with
       | U.Type_error _ -> raise (Bad "missing or invalid field 'hypotheses'")
     in
-    let cert_json = U.member "certificate" json in
+    let cert_json =
+      match U.member "certificate" json with
+      | `Assoc _ as c -> c
+      | _ -> raise (Bad "missing or invalid field 'certificate'")
+    in
     let base = parse_sos (U.member "base" cert_json) in
     let products =
       try U.member "products" cert_json |> U.to_list |> List.map parse_product with
