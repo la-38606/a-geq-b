@@ -39,6 +39,12 @@ val times_nonneg : multiplier:Certificate.t -> nonneg:Polynomial.t -> product
 val times_zero : multiplier:Polynomial.t -> zero:Polynomial.t -> product
 val make : base:Certificate.t -> products:product list -> t
 
+(** Normalize a claim's [given] side conditions into hypotheses under the
+    variable context: [a >= b] / [a <= b] give [Nonneg] of [a - b] / [b - a], and
+    [a = b] gives [Zero (a - b)]. Raises [Invalid_argument] on an unknown variable
+    or a non-polynomial side condition. *)
+val hypotheses_of_claim : Normalizer.context -> Ast.claim -> hypothesis list
+
 (** ["g >= 0"] or ["h = 0"]. *)
 val string_of_hypothesis : Pretty.vars -> hypothesis -> string
 

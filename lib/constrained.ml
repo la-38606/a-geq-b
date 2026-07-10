@@ -55,6 +55,22 @@ let times_zero ~(multiplier : Polynomial.t) ~(zero : Polynomial.t) : product =
 
 let make ~(base : Certificate.t) ~(products : product list) : t = { base; products }
 
+(** Normalize a claim's side conditions into hypotheses under the variable
+    context [ctx].  [a >= b] and [a <= b] become [Nonneg] hypotheses (of [a - b]
+    and [b - a] respectively); [a = b] becomes [Zero (a - b)].  Raises
+    [Invalid_argument] (via {!Normalizer.poly_of_expr}) on an unknown variable or
+    a non-polynomial (non-constant division) side condition. *)
+let hypotheses_of_claim (ctx : Normalizer.context) (claim : Ast.claim) : hypothesis list =
+  let sub a b = Normalizer.poly_of_expr ctx (Ast.Sub (a, b)) in
+  List.map
+    (fun (h : Ast.hyp) ->
+       match h.hyp_op with
+       | Ast.Hyp_ge -> Nonneg (sub h.hyp_lhs h.hyp_rhs)
+       | Ast.Hyp_le -> Nonneg (sub h.hyp_rhs h.hyp_lhs)
+       | Ast.Hyp_eq -> Zero (sub h.hyp_lhs h.hyp_rhs))
+    claim.hyps
+;;
+
 (* --- rendering ---------------------------------------------------------- *)
 
 let string_of_hypothesis (vars : Pretty.vars) : hypothesis -> string = function

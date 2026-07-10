@@ -6,8 +6,11 @@
     {2 Grammar}
 
     {v
-      claim   := "prove"? expr relop expr
+      claim   := "prove"? expr relop expr hyps?
+      hyps    := "given" hyp ("," hyp)*
+      hyp     := expr hyprel expr
       relop   := ">=" | "<="
+      hyprel  := ">=" | "<=" | "="
       expr    := term   (("+" | "-") term)*
       term    := factor (("*" | "/") factor)*
       factor  := base ("^" nat)?
@@ -15,6 +18,10 @@
       number  := int | int "/" int          (* e.g. 3, -4, 1/2 *)
       ident   := letter (letter | digit)*    (* e.g. a, b, x1 *)
     v}
+
+    Side conditions after ["given"] (e.g. ["a*b*c >= 1 given a >= 0, b >= 0"])
+    constrain the domain; the {!Normalizer} / {!Constrained} turn them into the
+    hypotheses of a Positivstellensatz certificate.
 
     Precedence (tightest first): parentheses, powers, multiplication/division,
     addition/subtraction, then the relation.  Unary minus binds a [factor]
@@ -33,6 +40,7 @@ type token =
   | INT of int
   | IDENT of string
   | PROVE
+  | GIVEN
   | PLUS
   | MINUS
   | STAR
@@ -42,6 +50,8 @@ type token =
   | RPAREN
   | GE
   | LE
+  | EQ
+  | COMMA
   | EOF
 
 exception Error_msg of string
@@ -80,6 +90,12 @@ let tokenize (s : string) : token list =
     | ')' ->
       push RPAREN;
       incr i
+    | ',' ->
+      push COMMA;
+      incr i
+    | '=' ->
+      push EQ;
+      incr i
     | '>' ->
       if !i + 1 < n && s.[!i + 1] = '='
       then (
@@ -108,7 +124,11 @@ let tokenize (s : string) : token list =
         incr j
       done;
       let name = String.sub s !i (!j - !i) in
-      push (if String.equal name "prove" then PROVE else IDENT name);
+      push
+        (match name with
+         | "prove" -> PROVE
+         | "given" -> GIVEN
+         | _ -> IDENT name);
       i := !j
     | _ -> raise (Error_msg (Printf.sprintf "unexpected character %C" c))
   done;
@@ -221,6 +241,43 @@ and p_expr (c : cursor) : Ast.expr =
   !left
 ;;
 
+(* hyp := expr (">=" | "<=" | "=") expr *)
+let p_hyp (c : cursor) : Ast.hyp =
+  let hyp_lhs = p_expr c in
+  let hyp_op =
+    match peek c with
+    | GE ->
+      advance c;
+      Ast.Hyp_ge
+    | LE ->
+      advance c;
+      Ast.Hyp_le
+    | EQ ->
+      advance c;
+      Ast.Hyp_eq
+    | _ -> raise (Error_msg "expected '>=', '<=' or '=' in a 'given' condition")
+  in
+  let hyp_rhs = p_expr c in
+  { Ast.hyp_lhs; hyp_op; hyp_rhs }
+;;
+
+(* hyps := "given" hyp ("," hyp)*   (absent => no side conditions) *)
+let p_hyps (c : cursor) : Ast.hyp list =
+  if peek c <> GIVEN
+  then []
+  else (
+    advance c;
+    let rec loop acc =
+      let acc = p_hyp c :: acc in
+      match peek c with
+      | COMMA ->
+        advance c;
+        loop acc
+      | _ -> List.rev acc
+    in
+    loop [])
+;;
+
 let p_claim (c : cursor) : Ast.claim =
   if peek c = PROVE then advance c;
   let lhs = p_expr c in
@@ -235,7 +292,8 @@ let p_claim (c : cursor) : Ast.claim =
     | _ -> raise (Error_msg "expected '>=' or '<='")
   in
   let rhs = p_expr c in
-  { Ast.lhs; op; rhs }
+  let hyps = p_hyps c in
+  { Ast.lhs; op; rhs; hyps }
 ;;
 
 (* ---------------------------------------------------------------------- *)

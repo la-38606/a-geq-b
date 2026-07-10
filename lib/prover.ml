@@ -344,6 +344,7 @@ let hello_world_target () : Polynomial.t =
     ; op = Ge
     ; rhs =
         Add (Add (Mul (var "a", var "b"), Mul (var "b", var "c")), Mul (var "c", var "a"))
+    ; hyps = []
     }
   in
   snd (Normalizer.poly_of_claim ~context:hello_world_vars claim)

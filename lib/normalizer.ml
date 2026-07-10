@@ -42,11 +42,18 @@ let vars_of_expr (e : Ast.expr) : context =
   List.rev !seen
 ;;
 
-(** Distinct variables of a claim, in order of first appearance (lhs then rhs). *)
+(** Distinct variables of a claim, in order of first appearance: the claim's
+    [lhs] then [rhs], then each side condition's [lhs] then [rhs]. Hypothesis
+    variables must be included so that a variable occurring only in a [given]
+    condition (e.g. [a >= 0 given b >= 0]) is still in the context. *)
 let vars_of_claim (c : Ast.claim) : context =
-  let l = vars_of_expr c.Ast.lhs
-  and r = vars_of_expr c.Ast.rhs in
-  List.fold_left (fun acc v -> if List.mem v acc then acc else acc @ [ v ]) l r
+  let add acc v = if List.mem v acc then acc else acc @ [ v ] in
+  let add_expr acc e = List.fold_left add acc (vars_of_expr e) in
+  let acc = add_expr (add_expr [] c.Ast.lhs) c.Ast.rhs in
+  List.fold_left
+    (fun acc (h : Ast.hyp) -> add_expr (add_expr acc h.hyp_lhs) h.hyp_rhs)
+    acc
+    c.Ast.hyps
 ;;
 
 (* A rational function is a pair (numerator, denominator) of polynomials, with a

@@ -104,6 +104,31 @@ let test_claim_le () =
       target
 ;;
 
+(* --- side conditions ("given") ------------------------------------------ *)
+
+let test_claim_given () =
+  (* Side conditions parse and leave the target polynomial (A - B) unchanged. *)
+  match Parser.parse "a^2 + b^2 + c^2 >= a*b + b*c + c*a given a >= 0, b >= 0" with
+  | Error m -> Alcotest.failf "claim with 'given' failed to parse: %s" m
+  | Ok claim ->
+    Alcotest.(check int) "two side conditions" 2 (List.length claim.Ast.hyps);
+    let _vars, target = Normalizer.poly_of_claim ~context:ctx claim in
+    Alcotest.check
+      poly
+      "target unaffected by 'given'"
+      (Prover.hello_world_target ())
+      target
+;;
+
+let test_claim_given_equality () =
+  match Parser.parse "a + b >= 2 given a*b = 1" with
+  | Error m -> Alcotest.failf "equality side condition failed to parse: %s" m
+  | Ok claim ->
+    (match claim.Ast.hyps with
+     | [ { hyp_op = Ast.Hyp_eq; _ } ] -> ()
+     | _ -> Alcotest.fail "expected a single equality side condition")
+;;
+
 (* --- invalid input ------------------------------------------------------ *)
 
 let test_rejections () =
@@ -112,7 +137,14 @@ let test_rejections () =
     [ "a +"; "a ** b"; "a b"; ""; "("; "a^"; "a^-1"; "*a"; "1/0" ];
   List.iter
     (fun s -> claim_rejected s ())
-    [ "a >= "; "a > b"; "a b >= c"; "a^2 + b^2" (* no relation *) ]
+    [ "a >= "
+    ; "a > b"
+    ; "a b >= c"
+    ; "a^2 + b^2" (* no relation *)
+    ; "a >= b given" (* 'given' with no condition *)
+    ; "a >= b given a" (* condition with no relation *)
+    ; "a >= b given a >= 0," (* trailing comma *)
+    ]
 ;;
 
 (* --- division / clearing denominators ----------------------------------- *)
@@ -280,6 +312,8 @@ let () =
     ; ( "claims"
       , [ Alcotest.test_case "A >= B target" `Quick test_claim_ge
         ; Alcotest.test_case "A <= B target" `Quick test_claim_le
+        ; Alcotest.test_case "given side conditions" `Quick test_claim_given
+        ; Alcotest.test_case "given equality condition" `Quick test_claim_given_equality
         ] )
     ; "invalid", [ Alcotest.test_case "malformed inputs rejected" `Quick test_rejections ]
     ; ( "division"

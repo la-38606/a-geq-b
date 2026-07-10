@@ -19,11 +19,27 @@ type relop =
   | Ge (** [>=] *)
   | Le (** [<=] *)
 
-(** A claim [lhs op rhs], e.g. [a^2 + b^2 >= 2*a*b]. *)
+(** Relation allowed in a side condition (equalities are allowed here, unlike in
+    the claim itself). *)
+type hyp_op =
+  | Hyp_ge (** [>=] *)
+  | Hyp_le (** [<=] *)
+  | Hyp_eq (** [=] *)
+
+(** A side condition constraining the domain, e.g. [a >= 0] or [a + b + c = 1]. *)
+type hyp =
+  { hyp_lhs : expr
+  ; hyp_op : hyp_op
+  ; hyp_rhs : expr
+  }
+
+(** A claim [lhs op rhs], e.g. [a^2 + b^2 >= 2*a*b], with optional side
+    conditions introduced by ["given"] (empty when unconstrained). *)
 type claim =
   { lhs : expr
   ; op : relop
   ; rhs : expr
+  ; hyps : hyp list
   }
 
 (** [int n] is the literal [n]. *)

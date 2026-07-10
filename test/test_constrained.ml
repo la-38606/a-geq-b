@@ -171,6 +171,41 @@ let test_of_string_malformed () =
   | Ok _ -> Alcotest.fail "expected Error for unknown hypothesis kind"
 ;;
 
+(* --- parsing side conditions end-to-end --- *)
+
+(* Parse [src], normalize it, and check [cert] against the resulting target and
+   hypotheses — exercising Parser -> Normalizer -> Constrained -> Checker. *)
+let parsed_checks src cert =
+  match Parser.parse src with
+  | Error m -> Alcotest.failf "parse %S failed: %s" src m
+  | Ok claim ->
+    let ctx, target = Normalizer.poly_of_claim claim in
+    let hypotheses = Constrained.hypotheses_of_claim ctx claim in
+    Checker.check_constrained_ok ~hypotheses target cert
+;;
+
+let test_given_nonneg () =
+  Alcotest.(check bool)
+    "a^3 >= 0 given a >= 0 parses and checks"
+    true
+    (parsed_checks "a^3 >= 0 given a >= 0" cube_cert)
+;;
+
+let test_given_equality () =
+  Alcotest.(check bool)
+    "a^2 >= 1 given a = 1 parses and checks"
+    true
+    (parsed_checks "a^2 >= 1 given a = 1" eq_cert)
+;;
+
+let test_given_le_normalizes () =
+  (* `0 <= a` is the same Nonneg(a) hypothesis as `a >= 0`. *)
+  Alcotest.(check bool)
+    "a^3 >= 0 given 0 <= a parses and checks"
+    true
+    (parsed_checks "a^3 >= 0 given 0 <= a" cube_cert)
+;;
+
 let () =
   Alcotest.run
     "constrained"
@@ -203,6 +238,11 @@ let () =
             `Quick
             test_of_string_corrupted
         ; Alcotest.test_case "malformed input is an Error" `Quick test_of_string_malformed
+        ] )
+    ; ( "given"
+      , [ Alcotest.test_case "nonneg side condition" `Quick test_given_nonneg
+        ; Alcotest.test_case "equality side condition" `Quick test_given_equality
+        ; Alcotest.test_case "<= normalizes to nonneg" `Quick test_given_le_normalizes
         ] )
     ]
 ;;
