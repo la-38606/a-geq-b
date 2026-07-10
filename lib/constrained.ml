@@ -87,3 +87,188 @@ let to_string (vars : Pretty.vars) (cert : t) : string =
   | [] -> "0"
   | _ -> String.concat " + " parts
 ;;
+
+let latex_of_product (vars : Pretty.vars) : product -> string = function
+  | Times_nonneg { multiplier; nonneg } ->
+    Printf.sprintf
+      "\\left(%s\\right)\\left(%s\\right)"
+      (Certificate.to_latex vars multiplier)
+      (Pretty.latex_of_poly vars nonneg)
+  | Times_zero { multiplier; zero } ->
+    Printf.sprintf
+      "\\left(%s\\right)\\left(%s\\right)"
+      (Pretty.latex_of_poly vars multiplier)
+      (Pretty.latex_of_poly vars zero)
+;;
+
+let to_latex (vars : Pretty.vars) (cert : t) : string =
+  let parts =
+    (match cert.base with
+     | [] -> []
+     | base -> [ Certificate.to_latex vars base ])
+    @ List.map (latex_of_product vars) cert.products
+  in
+  match parts with
+  | [] -> "0"
+  | _ -> String.concat " + " parts
+;;
+
+(* --- JSON --------------------------------------------------------------- *)
+
+let term_json (vars : Pretty.vars) (t : Certificate.term) : Yojson.Safe.t =
+  `Assoc
+    [ "coeff", `String (Rational.to_string t.coeff)
+    ; "poly", `String (Pretty.string_of_poly vars t.poly)
+    ]
+;;
+
+let sos_json (vars : Pretty.vars) (sos : Certificate.t) : Yojson.Safe.t =
+  `List (List.map (term_json vars) sos)
+;;
+
+let hypothesis_json (vars : Pretty.vars) : hypothesis -> Yojson.Safe.t = function
+  | Nonneg g ->
+    `Assoc [ "poly", `String (Pretty.string_of_poly vars g); "kind", `String "nonneg" ]
+  | Zero h ->
+    `Assoc [ "poly", `String (Pretty.string_of_poly vars h); "kind", `String "zero" ]
+;;
+
+let product_json (vars : Pretty.vars) : product -> Yojson.Safe.t = function
+  | Times_nonneg { multiplier; nonneg } ->
+    `Assoc
+      [ "kind", `String "nonneg"
+      ; "multiplier", sos_json vars multiplier
+      ; "constraint", `String (Pretty.string_of_poly vars nonneg)
+      ]
+  | Times_zero { multiplier; zero } ->
+    `Assoc
+      [ "kind", `String "zero"
+      ; "multiplier", `String (Pretty.string_of_poly vars multiplier)
+      ; "constraint", `String (Pretty.string_of_poly vars zero)
+      ]
+;;
+
+(** Serialise to the constrained JSON format (see [examples/]).  The hypotheses
+    are carried explicitly, so the [claim] string is just the ["A >= B"]
+    inequality. *)
+let to_json
+      ~(claim : string)
+      ~(vars : Pretty.vars)
+      ~(hypotheses : hypothesis list)
+      (cert : t)
+  : Yojson.Safe.t
+  =
+  `Assoc
+    [ "claim", `String claim
+    ; "variables", `List (List.map (fun v -> `String v) vars)
+    ; "hypotheses", `List (List.map (hypothesis_json vars) hypotheses)
+    ; ( "certificate"
+      , `Assoc
+          [ "base", sos_json vars cert.base
+          ; "products", `List (List.map (product_json vars) cert.products)
+          ] )
+    ]
+;;
+
+(** A constrained certificate loaded from JSON, with the claim, the target
+    polynomial [A - B], and the hypotheses cutting out the domain.  All
+    polynomials are built in the [vars] context so their indices line up. *)
+type parsed =
+  { claim_text : string
+  ; vars : string list
+  ; target : Polynomial.t
+  ; hypotheses : hypothesis list
+  ; certificate : t
+  }
+
+(** Load from a parsed JSON value.  Returns [Error msg] — never raises — on any
+    malformation.  Validates {i shape} only; the caller must still run the
+    trusted {!Checker.check_constrained} on the result. *)
+let of_json (json : Yojson.Safe.t) : (parsed, string) result =
+  let module U = Yojson.Safe.Util in
+  let exception Bad of string in
+  let string_field j name =
+    try j |> U.member name |> U.to_string with
+    | _ -> raise (Bad (Printf.sprintf "missing or non-string field %S" name))
+  in
+  let poly_of_string ~vars src =
+    match Parser.parse_expr src with
+    | Error m -> raise (Bad (Printf.sprintf "cannot parse polynomial %S: %s" src m))
+    | Ok e ->
+      (try Normalizer.poly_of_expr vars e with
+       | Invalid_argument m -> raise (Bad m))
+  in
+  try
+    let claim_text = string_field json "claim" in
+    let vars =
+      try json |> U.member "variables" |> U.to_list |> List.map U.to_string with
+      | _ -> raise (Bad "missing or invalid field 'variables'")
+    in
+    let target =
+      match Parser.parse claim_text with
+      | Error m -> raise (Bad ("cannot parse claim: " ^ m))
+      | Ok c ->
+        (try snd (Normalizer.poly_of_claim ~context:vars c) with
+         | Invalid_argument m -> raise (Bad m))
+    in
+    let parse_term j =
+      let coeff_s = string_field j "coeff" in
+      let coeff =
+        match Rational.of_string_opt coeff_s with
+        | Some q -> q
+        | None -> raise (Bad (Printf.sprintf "malformed rational coefficient %S" coeff_s))
+      in
+      Certificate.term coeff (poly_of_string ~vars (string_field j "poly"))
+    in
+    let parse_sos j =
+      try List.map parse_term (U.to_list j) with
+      | U.Type_error _ -> raise (Bad "an SOS field is not a list of terms")
+    in
+    let parse_hypothesis j =
+      let poly = poly_of_string ~vars (string_field j "poly") in
+      match string_field j "kind" with
+      | "nonneg" -> Nonneg poly
+      | "zero" -> Zero poly
+      | k -> raise (Bad (Printf.sprintf "unknown hypothesis kind %S" k))
+    in
+    let parse_product j =
+      match string_field j "kind" with
+      | "nonneg" ->
+        times_nonneg
+          ~multiplier:(parse_sos (U.member "multiplier" j))
+          ~nonneg:(poly_of_string ~vars (string_field j "constraint"))
+      | "zero" ->
+        times_zero
+          ~multiplier:(poly_of_string ~vars (string_field j "multiplier"))
+          ~zero:(poly_of_string ~vars (string_field j "constraint"))
+      | k -> raise (Bad (Printf.sprintf "unknown product kind %S" k))
+    in
+    let hypotheses =
+      try json |> U.member "hypotheses" |> U.to_list |> List.map parse_hypothesis with
+      | U.Type_error _ -> raise (Bad "missing or invalid field 'hypotheses'")
+    in
+    let cert_json = U.member "certificate" json in
+    let base = parse_sos (U.member "base" cert_json) in
+    let products =
+      try U.member "products" cert_json |> U.to_list |> List.map parse_product with
+      | U.Type_error _ -> raise (Bad "missing or invalid certificate field 'products'")
+    in
+    Ok { claim_text; vars; target; hypotheses; certificate = make ~base ~products }
+  with
+  | Bad m -> Error m
+;;
+
+(** Parse from a JSON string. Wraps JSON-syntax errors into [Error]. *)
+let of_string (s : string) : (parsed, string) result =
+  match Yojson.Safe.from_string s with
+  | json -> of_json json
+  | exception Yojson.Json_error m -> Error ("JSON syntax error: " ^ m)
+;;
+
+(** Read and parse a JSON file. Wraps I/O and JSON-syntax errors into [Error]. *)
+let load_file (path : string) : (parsed, string) result =
+  match Yojson.Safe.from_file path with
+  | json -> of_json json
+  | exception Sys_error m -> Error m
+  | exception Yojson.Json_error m -> Error ("JSON syntax error: " ^ m)
+;;

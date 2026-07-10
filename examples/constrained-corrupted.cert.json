@@ -1,0 +1,14 @@
+{
+  "_comment": "Same claim as constrained.cert.json but the multiplier is a+2, so (a+2)(a-1) = a^2 + a - 2 does not expand to a^2 - 1. The trusted checker must reject this with a Mismatch.",
+  "claim": "a^2 - 1 >= 0",
+  "variables": ["a"],
+  "hypotheses": [
+    { "poly": "a - 1", "kind": "zero" }
+  ],
+  "certificate": {
+    "base": [],
+    "products": [
+      { "kind": "zero", "multiplier": "a + 2", "constraint": "a - 1" }
+    ]
+  }
+}

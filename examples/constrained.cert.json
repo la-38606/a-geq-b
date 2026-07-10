@@ -1,0 +1,13 @@
+{
+  "claim": "a^2 - 1 >= 0",
+  "variables": ["a"],
+  "hypotheses": [
+    { "poly": "a - 1", "kind": "zero" }
+  ],
+  "certificate": {
+    "base": [],
+    "products": [
+      { "kind": "zero", "multiplier": "a + 1", "constraint": "a - 1" }
+    ]
+  }
+}

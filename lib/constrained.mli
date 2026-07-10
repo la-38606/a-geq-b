@@ -44,3 +44,36 @@ val string_of_hypothesis : Pretty.vars -> hypothesis -> string
 
 (** Render the certificate's right-hand side [base + sum products]. *)
 val to_string : Pretty.vars -> t -> string
+
+val to_latex : Pretty.vars -> t -> string
+
+(** Serialise to the constrained JSON format (see [examples/]). The hypotheses
+    are carried explicitly, so [claim] is just the ["A >= B"] inequality. *)
+val to_json
+  :  claim:string
+  -> vars:Pretty.vars
+  -> hypotheses:hypothesis list
+  -> t
+  -> Yojson.Safe.t
+
+(** A constrained certificate loaded from JSON, with the claim, the target
+    polynomial [A - B], and the hypotheses cutting out the domain. All
+    polynomials are built in the [vars] context. *)
+type parsed =
+  { claim_text : string
+  ; vars : string list
+  ; target : Polynomial.t
+  ; hypotheses : hypothesis list
+  ; certificate : t
+  }
+
+(** Load from a parsed JSON value. Returns [Error msg] (never raises) on any
+    malformation. Validates shape only -- the caller must still run
+    {!Checker.check_constrained}. *)
+val of_json : Yojson.Safe.t -> (parsed, string) result
+
+(** Parse from a JSON string. *)
+val of_string : string -> (parsed, string) result
+
+(** Read and parse a JSON file. *)
+val load_file : string -> (parsed, string) result

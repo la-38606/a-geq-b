@@ -119,6 +119,58 @@ let test_rejects_wrong_expansion () =
   | _ -> Alcotest.fail "expected Mismatch rejection"
 ;;
 
+(* --- JSON --- *)
+
+let checks (p : Constrained.parsed) =
+  Checker.check_constrained_ok ~hypotheses:p.hypotheses p.target p.certificate
+;;
+
+let test_json_roundtrip () =
+  let json =
+    Constrained.to_json ~claim:"a^2 - 1 >= 0" ~vars:[ "a" ] ~hypotheses:eq_hyps eq_cert
+  in
+  match Constrained.of_json json with
+  | Error m -> Alcotest.fail ("round-trip parse failed: " ^ m)
+  | Ok p -> Alcotest.(check bool) "round-tripped certificate still checks" true (checks p)
+;;
+
+let test_of_string_valid () =
+  let src =
+    {|{ "claim":"a^2 - 1 >= 0", "variables":["a"],
+       "hypotheses":[{"poly":"a - 1","kind":"zero"}],
+       "certificate":{"base":[],
+         "products":[{"kind":"zero","multiplier":"a + 1","constraint":"a - 1"}]} }|}
+  in
+  match Constrained.of_string src with
+  | Error m -> Alcotest.fail ("parse failed: " ^ m)
+  | Ok p -> Alcotest.(check bool) "parsed certificate checks" true (checks p)
+;;
+
+let test_of_string_corrupted () =
+  (* multiplier a + 2 makes (a+2)(a-1) /= a^2 - 1; the checker must reject. *)
+  let src =
+    {|{ "claim":"a^2 - 1 >= 0", "variables":["a"],
+       "hypotheses":[{"poly":"a - 1","kind":"zero"}],
+       "certificate":{"base":[],
+         "products":[{"kind":"zero","multiplier":"a + 2","constraint":"a - 1"}]} }|}
+  in
+  match Constrained.of_string src with
+  | Error m -> Alcotest.fail ("should parse (shape is valid): " ^ m)
+  | Ok p -> Alcotest.(check bool) "corrupted certificate rejected" false (checks p)
+;;
+
+let test_of_string_malformed () =
+  (* An unknown hypothesis kind is a shape error: [Error], never an exception. *)
+  let src =
+    {|{ "claim":"a >= 0", "variables":["a"],
+       "hypotheses":[{"poly":"a","kind":"bogus"}],
+       "certificate":{"base":[],"products":[]} }|}
+  in
+  match Constrained.of_string src with
+  | Error _ -> ()
+  | Ok _ -> Alcotest.fail "expected Error for unknown hypothesis kind"
+;;
+
 let () =
   Alcotest.run
     "constrained"
@@ -142,6 +194,15 @@ let () =
             `Quick
             test_rejects_wrong_kind
         ; Alcotest.test_case "wrong expansion" `Quick test_rejects_wrong_expansion
+        ] )
+    ; ( "json"
+      , [ Alcotest.test_case "round-trip" `Quick test_json_roundtrip
+        ; Alcotest.test_case "parse a valid certificate" `Quick test_of_string_valid
+        ; Alcotest.test_case
+            "parse then reject a corrupted one"
+            `Quick
+            test_of_string_corrupted
+        ; Alcotest.test_case "malformed input is an Error" `Quick test_of_string_malformed
         ] )
     ]
 ;;
