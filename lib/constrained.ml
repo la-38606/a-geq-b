@@ -299,6 +299,26 @@ type any =
   | Unconstrained of Certificate.parsed
   | Constrained of parsed
 
+(* Detect and parse an already-decoded JSON value as either shape: a
+   ["certificate"] object means constrained, otherwise a plain ["sos"] list.
+   Guards the top-level shape so a non-object never raises a Yojson error. *)
+let any_of_json (json : Yojson.Safe.t) : (any, string) result =
+  match json with
+  | `Assoc _ ->
+    if Yojson.Safe.Util.member "certificate" json = `Null
+    then Result.map (fun p -> Unconstrained p) (Certificate.of_json json)
+    else Result.map (fun p -> Constrained p) (of_json json)
+  | _ -> Error "expected a JSON object"
+;;
+
+(** Parse a certificate of either shape from a JSON string. Returns [Error msg]
+    (never raises) on any malformation. *)
+let of_string_any (s : string) : (any, string) result =
+  match Yojson.Safe.from_string s with
+  | json -> any_of_json json
+  | exception Yojson.Json_error m -> Error ("JSON syntax error: " ^ m)
+;;
+
 (** Load a certificate file of {i either} shape, detected by the presence of a
     ["certificate"] object (constrained) versus a ["sos"] list (unconstrained).
     Returns [Error msg] (never raises) on any malformation. *)
@@ -306,8 +326,5 @@ let load_any (path : string) : (any, string) result =
   match Yojson.Safe.from_file path with
   | exception Sys_error m -> Error m
   | exception Yojson.Json_error m -> Error ("JSON syntax error: " ^ m)
-  | json ->
-    if Yojson.Safe.Util.member "certificate" json = `Null
-    then Result.map (fun p -> Unconstrained p) (Certificate.of_json json)
-    else Result.map (fun p -> Constrained p) (of_json json)
+  | json -> any_of_json json
 ;;

@@ -90,6 +90,10 @@ type any =
   | Unconstrained of Certificate.parsed
   | Constrained of parsed
 
+(** Parse a certificate of either shape from a JSON string. [Error msg] (never
+    raises) on malformation. *)
+val of_string_any : string -> (any, string) result
+
 (** Load a certificate file of either shape, detected by a ["certificate"] object
     (constrained) versus a ["sos"] list (unconstrained). [Error msg] (never
     raises) on malformation. *)

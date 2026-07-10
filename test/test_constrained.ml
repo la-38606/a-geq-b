@@ -179,6 +179,38 @@ let test_of_string_missing_certificate () =
   | Ok _ -> Alcotest.fail "expected Error for a missing 'certificate' field"
 ;;
 
+let test_any_non_object () =
+  (* A non-object top-level JSON must be an Error, never a raised exception. *)
+  List.iter
+    (fun src ->
+       match Constrained.of_string_any src with
+       | Error _ -> ()
+       | Ok _ -> Alcotest.failf "expected Error for non-object JSON %S" src)
+    [ "[1, 2, 3]"; {|"hello"|}; "42"; "null" ]
+;;
+
+let test_any_dispatch () =
+  (* of_string_any routes a "sos" doc to Unconstrained and a "certificate" doc
+     to Constrained; both then check out. *)
+  let plain =
+    {|{ "claim":"a^2 >= 0", "variables":["a"], "sos":[{"coeff":"1","poly":"a"}] }|}
+  in
+  let constrained =
+    {|{ "claim":"a^2 - 1 >= 0", "variables":["a"],
+       "hypotheses":[{"poly":"a - 1","kind":"zero"}],
+       "certificate":{"base":[],
+         "products":[{"kind":"zero","multiplier":"a + 1","constraint":"a - 1"}]} }|}
+  in
+  (match Constrained.of_string_any plain with
+   | Ok (Constrained.Unconstrained { target; certificate; _ }) ->
+     Alcotest.(check bool) "plain checks" true (Checker.check_sos target certificate)
+   | _ -> Alcotest.fail "expected an Unconstrained certificate");
+  match Constrained.of_string_any constrained with
+  | Ok (Constrained.Constrained p) ->
+    Alcotest.(check bool) "constrained checks" true (checks p)
+  | _ -> Alcotest.fail "expected a Constrained certificate"
+;;
+
 (* --- parsing side conditions end-to-end --- *)
 
 (* Parse [src], normalize it, and check [cert] against the resulting target and
@@ -250,6 +282,11 @@ let () =
             "missing 'certificate' is an Error"
             `Quick
             test_of_string_missing_certificate
+        ; Alcotest.test_case "non-object JSON is an Error" `Quick test_any_non_object
+        ; Alcotest.test_case
+            "of_string_any dispatches both shapes"
+            `Quick
+            test_any_dispatch
         ] )
     ; ( "given"
       , [ Alcotest.test_case "nonneg side condition" `Quick test_given_nonneg
