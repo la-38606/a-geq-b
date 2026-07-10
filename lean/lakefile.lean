@@ -10,3 +10,7 @@ require mathlib from git
 
 @[default_target]
 lean_lib «AeqbCheck» where
+
+-- Machine-generated proofs emitted by `a-geq-b lean` (see regen.sh).
+@[default_target]
+lean_lib «Proofs» where
