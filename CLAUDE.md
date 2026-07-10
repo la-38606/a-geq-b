@@ -91,8 +91,8 @@ installing zarith).
     degree-`d` basis for homogeneous targets;
   - under-determined Gram matrices resolved by a bounded rational grid search
     (≤2 free entries) — `gram_candidates` in `lib/prover.ml`.
-  It proves **49 of the 58** `in_scope_sos` corpus targets and is sound over all
-  100 (`python3 corpus/run_prover.py`). Every candidate is re-checked by the
+  It proves **53 of the 63** `in_scope_sos` corpus targets and is sound over all
+  119 (`python3 corpus/run_prover.py`). Every candidate is re-checked by the
   trusted checker, so the search cannot produce a false `PROVED`.
 - The normalizer also **clears denominators**, so rational-function inequalities
   (`a/(b+c) + ... >= 3/2`) parse and reduce to a polynomial target.

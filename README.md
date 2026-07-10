@@ -70,7 +70,7 @@ The trusted checker's soundness is **formally verified in Lean 4 / Mathlib**:
 | `Pretty` — readable + LaTeX rendering of polynomials/certificates | ✅ done |
 | `Certificate` — SOS term data, rendering, JSON read + write | ✅ done |
 | `Checker` — `check_sos : poly → certificate → bool`, exact | ✅ done (trusted core) |
-| `Prover` — SOS search (Gram + rational LDLᵀ over a monomial basis, bounded grid search) | 🚧 proves 49/58 corpus targets; wide multi-var SDP case pending |
+| `Prover` — SOS search (Gram + rational LDLᵀ over a monomial basis, bounded grid search) | 🚧 proves 53/63 corpus targets; wide multi-var SDP case pending |
 | CLI — `--help`, `demo`, `prove`, `check` | ✅ done |
 | Tests — `test_polynomial`, `test_parser`, `test_checker`, `test_prover` | ✅ 79 cases |
 
