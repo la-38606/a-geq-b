@@ -52,6 +52,11 @@ system design, see the technical report:
 [doc/aeqb-design.pdf](doc/aeqb-design.pdf) (source
 [doc/aeqb-design.tex](doc/aeqb-design.tex); build with `tectonic doc/aeqb-design.tex`).
 
+The trusted checker's soundness is **formally verified in Lean 4 / Mathlib**:
+[`lean/AeqbCheck.lean`](lean/AeqbCheck.lean) proves
+`checkSOS p cert = true → ∀ x, 0 ≤ aeval x p` (axiom-clean, no `sorry`). See
+[lean/README.md](lean/README.md).
+
 ## What is implemented in this skeleton
 
 | Area | Status |

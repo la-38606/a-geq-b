@@ -96,6 +96,9 @@ installing zarith).
   trusted checker, so the search cannot produce a false `PROVED`.
 - The normalizer also **clears denominators**, so rational-function inequalities
   (`a/(b+c) + ... >= 3/2`) parse and reduce to a polynomial target.
+- **Lean 4 formally verified checker** (`lean/`) — ✅ the trusted core's soundness
+  is machine-proved: `checkSOS_sound : checkSOS p cert = true -> forall x,
+  0 <= aeval x p`, axiom-clean (no `sorry`). See `lean/README.md`.
 
 ## Roadmap to the finished version
 
@@ -117,22 +120,22 @@ Ordered; each keeps the checker as the sole authority.
    Unlocks the 50 `out_of_scope_v1` corpus targets (AM-GM, Schur, Nesbitt, the
    IMO/Iran/Japan/book problems). Largest capability jump.
 
-3. **Formally verified checker in Lean 4.** Upgrade the trusted core from "small
-   and audited" to "machine-verified." Note: Lean is not "extracted" like Coq —
-   the analog is a *verified reimplementation* (Lean compiles to native code and
-   `#eval`s), plus optionally emitting Lean-checkable proofs. Two directions:
-   - **Verified checker.** Reimplement `check_sos` in Lean 4 over `MvPolynomial
-     (Fin n) Rat` and prove the soundness theorem
-     `check_sos p cert = true -> forall x : Fin n -> Real, 0 <= p.eval x`. The
-     proof is short in spirit — a nonnegative-coefficient sum of squares is `>=
-     0` (`sq_nonneg`, `mul_nonneg`, `Finset.sum_nonneg`) once `check_sos`
-     establishes the polynomial identity. Mathlib has the polynomial / real
-     infrastructure. Run this Lean checker as the authority, or as an
-     independent oracle beside the OCaml one.
-   - **Lean-checkable proof output.** Have the (untrusted) OCaml prover emit,
-     per certificate, a Lean proof term / script that Lean's kernel checks, so
-     every A>=B proof becomes a machine-checked Lean theorem — the strongest
-     possible trust reduction.
+3. **Formally verified checker in Lean 4** — 🚧 in progress; first direction
+   done. Upgrade the trusted core from "small and audited" to "machine-verified."
+   Note: Lean is not "extracted" like Coq — the analog is a *verified
+   reimplementation* (Lean compiles to native code and `#eval`s), plus optionally
+   emitting Lean-checkable proofs. Two directions:
+   - **Verified checker** — ✅ done. `lean/AeqbCheck.lean` reimplements
+     `check_sos` over `MvPolynomial (Fin n) Rat` and proves
+     `checkSOS_sound : checkSOS p cert = true -> forall x : Fin n -> Real,
+     0 <= aeval x p`. Complete and axiom-clean (`#print axioms` =
+     `[propext, Classical.choice, Quot.sound]`, no `sorry`); pinned to
+     `leanprover/lean4:v4.31.0` + Mathlib. See `lean/README.md`. Could run as an
+     independent oracle beside the OCaml checker.
+   - **Lean-checkable proof output** — remaining. Have the (untrusted) OCaml
+     prover emit, per certificate, a Lean proof term / script that Lean's kernel
+     checks, so every A>=B proof becomes a machine-checked Lean theorem — the
+     strongest possible trust reduction.
 
 4. **UI (optional, Milestone 6).** Because the engine is pure OCaml, the clean
    option is **js_of_ocaml**: compile the lib to run `prove`/`check`
