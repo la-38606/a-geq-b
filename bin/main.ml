@@ -4,7 +4,7 @@
     - [--help]            usage
     - [demo]              the built-in hardcoded proof
     - [prove "<ineq>"]    parse + (attempt to) auto-prove an inequality
-    - [check <file.json>] load and check a JSON certificate
+    - [check <file.json>] load and check a JSON certificate (plain or constrained)
     - [lean "<ineq>"]     prove, then emit a checkable Lean proof to stdout
 
     Exit statuses mirror the reported [Status:] line:
@@ -33,8 +33,13 @@ let usage () =
        ; "  a-geq-b --help                     Show this message"
        ; "  a-geq-b demo                       Run the built-in hello-world proof"
        ; "  a-geq-b prove \"a^2+b^2 >= 2*a*b\"    Parse and try to prove an inequality"
-       ; "  a-geq-b check cert.json            Load and check a JSON certificate"
+       ; "  a-geq-b check cert.json            Check a JSON certificate (plain or \
+          constrained)"
        ; "  a-geq-b lean \"a^2 >= 2*a-1\" [name]  Emit a checkable Lean proof to stdout"
+       ; ""
+       ; "An inequality may carry side conditions, e.g."
+       ; "  a-geq-b check examples/constrained.cert.json"
+       ; "verifies  a^2 - 1 >= 0  given  a - 1 = 0."
        ; ""
        ])
 ;;
@@ -97,6 +102,36 @@ let print_proved ~claim ~vars ~target ~cert =
     (Certificate.to_latex vars cert)
 ;;
 
+(* Proof output for an accepted constrained (Positivstellensatz) certificate. *)
+let print_proved_constrained ~claim ~vars ~hypotheses ~target ~cert =
+  Printf.printf "Claim:\n  %s\n\n" claim;
+  (match hypotheses with
+   | [] -> ()
+   | _ ->
+     print_string "Assuming:\n";
+     List.iter
+       (fun h -> Printf.printf "  %s\n" (Constrained.string_of_hypothesis vars h))
+       hypotheses;
+     print_newline ());
+  Printf.printf
+    "Equivalent to proving (on that domain):\n  %s >= 0\n\n"
+    (Pretty.string_of_poly vars target);
+  Printf.printf
+    "Certificate:\n  %s\n  = %s\n\n"
+    (Pretty.string_of_poly vars target)
+    (Constrained.to_string vars cert);
+  print_string
+    "Reason:\n\
+    \  Each summand is a sum of squares, a sum of squares times a nonnegative\n\
+    \  hypothesis, or a multiple of a vanishing hypothesis; so on the given\n\
+    \  domain the right-hand side is >= 0. The checker verified the identity\n\
+    \  between the two sides exactly.\n\n";
+  Printf.printf
+    "LaTeX:\n  %s = %s\n\n"
+    (Pretty.latex_of_poly vars target)
+    (Constrained.to_latex vars cert)
+;;
+
 let string_of_failure ~vars = function
   | Checker.Negative_coefficient q ->
     Printf.sprintf "a certificate coefficient is negative: %s" (Rational.to_string q)
@@ -137,41 +172,66 @@ let run_prove (input : string) =
        Printf.eprintf "Could not reduce the inequality: %s\n" msg;
        finish Invalid_input
      | vars, target ->
-       (match Prover.prove target with
-        | Prover.Proved cert ->
-          (* Untrusted output MUST pass the trusted checker before PROVED. *)
-          if Checker.check_sos target cert
-          then (
-            print_proved ~claim:input ~vars ~target ~cert;
-            finish Proved)
-          else (
-            print_preamble ~claim:input ~vars ~target;
-            print_string
-              "The prover proposed a certificate, but the checker rejected it.\n\n";
-            finish Check_failed)
-        | Prover.No_certificate_found ->
+       (match claim.Ast.hyps with
+        | _ :: _ ->
+          (* Constrained search (Positivstellensatz) is not implemented yet; be
+             honest rather than silently proving the unconstrained target. *)
           print_preamble ~claim:input ~vars ~target;
           print_string
-            (String.concat
-               "\n"
-               [ "No supported sum-of-squares certificate was found. This is not a"
-               ; "disproof: the target may still be true but need a certificate the"
-               ; "current prover cannot construct (e.g. one requiring an SDP)."
-               ; ""
-               ; ""
-               ]);
-          finish No_cert_found))
+            "This claim has side conditions ('given ...'). Automatic\n\
+            \  Positivstellensatz search is not implemented yet; you can still\n\
+            \  verify a constrained certificate JSON with 'check'.\n\n";
+          finish No_cert_found
+        | [] ->
+          (match Prover.prove target with
+           | Prover.Proved cert ->
+             (* Untrusted output MUST pass the trusted checker before PROVED. *)
+             if Checker.check_sos target cert
+             then (
+               print_proved ~claim:input ~vars ~target ~cert;
+               finish Proved)
+             else (
+               print_preamble ~claim:input ~vars ~target;
+               print_string
+                 "The prover proposed a certificate, but the checker rejected it.\n\n";
+               finish Check_failed)
+           | Prover.No_certificate_found ->
+             print_preamble ~claim:input ~vars ~target;
+             print_string
+               (String.concat
+                  "\n"
+                  [ "No supported sum-of-squares certificate was found. This is not a"
+                  ; "disproof: the target may still be true but need a certificate the"
+                  ; "current prover cannot construct (e.g. one requiring an SDP)."
+                  ; ""
+                  ; ""
+                  ]);
+             finish No_cert_found)))
 ;;
 
 let run_check (path : string) =
-  match Certificate.load_file path with
+  match Constrained.load_any path with
   | Error msg ->
     Printf.eprintf "Could not load certificate: %s\n" msg;
     finish Invalid_input
-  | Ok { claim_text; vars; target; certificate } ->
+  | Ok (Constrained.Unconstrained { claim_text; vars; target; certificate }) ->
     (match Checker.check target certificate with
      | Checker.Verified ->
        print_proved ~claim:claim_text ~vars ~target ~cert:certificate;
+       finish Proved
+     | Checker.Rejected failure ->
+       print_preamble ~claim:claim_text ~vars ~target;
+       Printf.printf "Certificate rejected: %s\n\n" (string_of_failure ~vars failure);
+       finish Check_failed)
+  | Ok (Constrained.Constrained { claim_text; vars; target; hypotheses; certificate }) ->
+    (match Checker.check_constrained ~hypotheses target certificate with
+     | Checker.Verified ->
+       print_proved_constrained
+         ~claim:claim_text
+         ~vars
+         ~hypotheses
+         ~target
+         ~cert:certificate;
        finish Proved
      | Checker.Rejected failure ->
        print_preamble ~claim:claim_text ~vars ~target;

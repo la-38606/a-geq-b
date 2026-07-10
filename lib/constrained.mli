@@ -83,3 +83,14 @@ val of_string : string -> (parsed, string) result
 
 (** Read and parse a JSON file. *)
 val load_file : string -> (parsed, string) result
+
+(** The two certificate file shapes: an unconstrained sum-of-squares certificate
+    or a constrained (Positivstellensatz) one. *)
+type any =
+  | Unconstrained of Certificate.parsed
+  | Constrained of parsed
+
+(** Load a certificate file of either shape, detected by a ["certificate"] object
+    (constrained) versus a ["sos"] list (unconstrained). [Error msg] (never
+    raises) on malformation. *)
+val load_any : string -> (any, string) result

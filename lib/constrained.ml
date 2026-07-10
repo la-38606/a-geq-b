@@ -288,3 +288,22 @@ let load_file (path : string) : (parsed, string) result =
   | exception Sys_error m -> Error m
   | exception Yojson.Json_error m -> Error ("JSON syntax error: " ^ m)
 ;;
+
+(** The two certificate file shapes: an unconstrained sum-of-squares
+    ({!Certificate}) or a constrained Positivstellensatz certificate. *)
+type any =
+  | Unconstrained of Certificate.parsed
+  | Constrained of parsed
+
+(** Load a certificate file of {i either} shape, detected by the presence of a
+    ["certificate"] object (constrained) versus a ["sos"] list (unconstrained).
+    Returns [Error msg] (never raises) on any malformation. *)
+let load_any (path : string) : (any, string) result =
+  match Yojson.Safe.from_file path with
+  | exception Sys_error m -> Error m
+  | exception Yojson.Json_error m -> Error ("JSON syntax error: " ^ m)
+  | json ->
+    if Yojson.Safe.Util.member "certificate" json = `Null
+    then Result.map (fun p -> Unconstrained p) (Certificate.of_json json)
+    else Result.map (fun p -> Constrained p) (of_json json)
+;;
