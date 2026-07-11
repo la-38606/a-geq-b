@@ -2,4 +2,5 @@
  (name main)
  (public_name a-geq-b)
  (package a-geq-b)
- (libraries a_geq_b))
+ ; unix -> isatty, for terminal-only colour in the CLI presentation (Style).
+ (libraries a_geq_b unix))

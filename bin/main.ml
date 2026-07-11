@@ -22,24 +22,32 @@ let description =
 ;;
 
 let usage () =
+  let heading s = Style.label s in
+  (* Command reference, aligned so every description starts in the same column. *)
+  let command name desc = Printf.sprintf "  %-22s%s" name desc in
   print_string
     (String.concat
        "\n"
-       [ "A>=B (a-geq-b) - sum-of-squares inequality prover"
+       [ "A>=B - a sum-of-squares prover for polynomial inequalities."
        ; ""
        ; description
        ; ""
-       ; "Usage:"
-       ; "  a-geq-b --help                     Show this message"
-       ; "  a-geq-b demo                       Run the built-in hello-world proof"
-       ; "  a-geq-b prove \"a^2+b^2 >= 2*a*b\"    Parse and try to prove an inequality"
-       ; "  a-geq-b check cert.json            Check a JSON certificate (plain or \
-          constrained)"
-       ; "  a-geq-b lean \"a^2 >= 2*a-1\" [name]  Emit a checkable Lean proof to stdout"
+       ; heading "Usage"
+       ; "  a-geq-b <command> [arguments]"
        ; ""
-       ; "An inequality may carry side conditions, e.g."
-       ; "  a-geq-b check examples/constrained.cert.json"
-       ; "verifies  a^2 - 1 >= 0  given  a - 1 = 0."
+       ; heading "Commands"
+       ; command "demo" "Run the built-in worked example"
+       ; command "prove \"<inequality>\"" "Search for a certificate and report the result"
+       ; command "check <file.json>" "Verify a certificate (plain or constrained)"
+       ; command "lean \"<inequality>\"" "Emit a machine-checkable Lean proof to stdout"
+       ; command "--help" "Show this message"
+       ; ""
+       ; heading "Side conditions"
+       ; "  Attach hypotheses with `given`, e.g."
+       ; "    a-geq-b prove \"a*b >= 0 given a >= 0, b >= 0\""
+       ; ""
+       ; heading "Exit status"
+       ; "  0 PROVED    2 NO_CERT_FOUND    3 INVALID_INPUT    4 CHECK_FAILED"
        ; ""
        ])
 ;;
@@ -70,66 +78,106 @@ let finish (status : status) =
     | Invalid_input -> "INVALID_INPUT"
     | Check_failed -> "CHECK_FAILED"
   in
-  Printf.printf "Status: %s\n" name;
+  (* The label and format stay exactly "Status: <NAME>" so tools that read the
+     result back keep working; only the name is coloured, and only on a terminal
+     (never under capture, so the parsed text is unchanged). *)
+  let shown =
+    match status with
+    | Proved -> Style.ok name
+    | Invalid_input | Check_failed -> Style.bad name
+    | No_cert_found -> name
+  in
+  Printf.printf "Status: %s\n" shown;
   exit (code_of_status status)
 ;;
 
-(* --- shared printing ---------------------------------------------------- *)
+(* --- presentation ------------------------------------------------------- *)
 
-(* The common "Claim / Equivalent to proving" preamble. *)
-let print_preamble ~claim ~vars ~target =
-  Printf.printf "Claim:\n  %s\n\n" claim;
-  Printf.printf
-    "Equivalent to proving:\n  %s >= 0\n\n"
-    (Pretty.string_of_poly vars target)
+(* A labelled section: a faint label, then the content indented under it. Every
+   part of a report (claim, hypotheses, target, certificate, export) is printed
+   this way, which gives the output a single, consistent structure. *)
+let section (label : string) (content : string) : unit =
+  Printf.printf "%s\n%s\n\n" (Style.label label) (Style.indent content)
 ;;
 
-(* Full proof output for an accepted certificate. *)
-let print_proved ~claim ~vars ~target ~cert =
-  print_preamble ~claim ~vars ~target;
-  Printf.printf
-    "Certificate:\n  %s\n  = %s\n\n"
-    (Pretty.string_of_poly vars target)
-    (Certificate.to_string vars cert);
-  print_string
-    "Reason:\n\
-    \  Each summand is a nonnegative rational multiple of a square, so the\n\
-    \  right-hand side is >= 0 for all real values. The checker verified the\n\
-    \  identity between the two sides exactly.\n\n";
-  Printf.printf
-    "LaTeX:\n  %s = %s\n\n"
-    (Pretty.latex_of_poly vars target)
-    (Certificate.to_latex vars cert)
+(* A faint, indented secondary note. The caller supplies the line breaks. *)
+let note (text : string) : unit =
+  List.iter
+    (fun line -> Printf.printf "  %s\n" (Style.label line))
+    (String.split_on_char '\n' text);
+  print_newline ()
 ;;
 
-(* Proof output for an accepted constrained (Positivstellensatz) certificate. *)
-let print_proved_constrained ~claim ~vars ~hypotheses ~target ~cert =
-  Printf.printf "Claim:\n  %s\n\n" claim;
+(* Claim + reduced target: the input and the intermediate step, shared by the
+   proved and not-proved reports. *)
+let preamble ~claim ~vars ~target =
+  section "Claim" claim;
+  section "Reduces to" (Printf.sprintf "%s  >= 0" (Pretty.string_of_poly vars target))
+;;
+
+(* As {!preamble}, but listing the hypotheses of a constrained claim first. *)
+let preamble_constrained ~claim ~vars ~hypotheses ~target =
+  section "Claim" claim;
   (match hypotheses with
    | [] -> ()
    | _ ->
-     print_string "Assuming:\n";
-     List.iter
-       (fun h -> Printf.printf "  %s\n" (Constrained.string_of_hypothesis vars h))
-       hypotheses;
-     print_newline ());
-  Printf.printf
-    "Equivalent to proving (on that domain):\n  %s >= 0\n\n"
-    (Pretty.string_of_poly vars target);
-  Printf.printf
-    "Certificate:\n  %s\n  = %s\n\n"
-    (Pretty.string_of_poly vars target)
-    (Constrained.to_string vars cert);
-  print_string
-    "Reason:\n\
-    \  Each summand is a sum of squares, a sum of squares times a nonnegative\n\
-    \  hypothesis, or a multiple of a vanishing hypothesis; so on the given\n\
-    \  domain the right-hand side is >= 0. The checker verified the identity\n\
-    \  between the two sides exactly.\n\n";
-  Printf.printf
-    "LaTeX:\n  %s = %s\n\n"
-    (Pretty.latex_of_poly vars target)
-    (Constrained.to_latex vars cert)
+     section
+       "Assuming"
+       (String.concat "\n" (List.map (Constrained.string_of_hypothesis vars) hypotheses)));
+  let domain =
+    match hypotheses with
+    | [] -> ""
+    | _ -> "   (on the domain above)"
+  in
+  section
+    "Reduces to"
+    (Printf.sprintf "%s  >= 0%s" (Pretty.string_of_poly vars target) domain)
+;;
+
+(* Full report for an accepted (unconstrained) certificate. *)
+let print_proved ~claim ~vars ~target ~cert =
+  preamble ~claim ~vars ~target;
+  section
+    "Certificate"
+    (Printf.sprintf
+       "%s\n  = %s"
+       (Pretty.string_of_poly vars target)
+       (Certificate.to_string vars cert));
+  note
+    (String.concat
+       "\n"
+       [ "Each summand is a nonnegative rational multiple of a square, so the sum"
+       ; "is nonnegative for all real inputs; the checker verified the identity."
+       ]);
+  section
+    "LaTeX"
+    (Printf.sprintf
+       "%s = %s"
+       (Pretty.latex_of_poly vars target)
+       (Certificate.to_latex vars cert))
+;;
+
+(* Full report for an accepted constrained (Positivstellensatz) certificate. *)
+let print_proved_constrained ~claim ~vars ~hypotheses ~target ~cert =
+  preamble_constrained ~claim ~vars ~hypotheses ~target;
+  section
+    "Certificate"
+    (Printf.sprintf
+       "%s\n  = %s"
+       (Pretty.string_of_poly vars target)
+       (Constrained.to_string vars cert));
+  note
+    (String.concat
+       "\n"
+       [ "On that domain each term is a square, a square times a nonnegative"
+       ; "hypothesis, or a multiple of a vanishing one; the identity was verified."
+       ]);
+  section
+    "LaTeX"
+    (Printf.sprintf
+       "%s = %s"
+       (Pretty.latex_of_poly vars target)
+       (Constrained.to_latex vars cert))
 ;;
 
 (* Warn (to stderr) about any hypothesis with an empty solution set: a claim
@@ -140,7 +188,7 @@ let warn_vacuous ~vars hypotheses =
        if Constrained.is_impossible_constant h
        then
          Printf.eprintf
-           "Warning: the hypothesis '%s' has no solutions, so the claim holds only \
+           "warning: the hypothesis '%s' has no solutions, so the claim holds only \
             vacuously.\n"
            (Constrained.string_of_hypothesis vars h))
     hypotheses
@@ -178,12 +226,12 @@ let run_demo () =
 let run_prove (input : string) =
   match Parser.parse input with
   | Error msg ->
-    Printf.eprintf "Could not parse the inequality: %s\n" msg;
+    Printf.eprintf "error: could not parse the inequality: %s\n" msg;
     finish Invalid_input
   | Ok claim ->
     (match Normalizer.poly_of_claim claim with
      | exception Invalid_argument msg ->
-       Printf.eprintf "Could not reduce the inequality: %s\n" msg;
+       Printf.eprintf "error: could not reduce the inequality: %s\n" msg;
        finish Invalid_input
      | vars, target ->
        (match claim.Ast.hyps with
@@ -191,7 +239,7 @@ let run_prove (input : string) =
           (* Constrained claim: search for a Positivstellensatz certificate. *)
           (match Constrained.hypotheses_of_claim vars claim with
            | exception Invalid_argument msg ->
-             Printf.eprintf "Could not reduce a side condition: %s\n" msg;
+             Printf.eprintf "error: could not reduce a side condition: %s\n" msg;
              finish Invalid_input
            | hypotheses ->
              warn_vacuous ~vars hypotheses;
@@ -203,16 +251,22 @@ let run_prove (input : string) =
                   print_proved_constrained ~claim:input ~vars ~hypotheses ~target ~cert;
                   finish Proved)
                 else (
-                  print_preamble ~claim:input ~vars ~target;
-                  print_string
-                    "The prover proposed a certificate, but the checker rejected it.\n\n";
+                  preamble_constrained ~claim:input ~vars ~hypotheses ~target;
+                  note
+                    "The prover proposed a certificate, but the trusted checker rejected \
+                     it.";
                   finish Check_failed)
               | Prover.No_constrained_certificate ->
-                print_preamble ~claim:input ~vars ~target;
-                print_string
-                  "No supported Positivstellensatz certificate was found. This is not\n\
-                  \  a disproof: the first-cut constrained search only tries constant\n\
-                  \  hypothesis-multipliers with a sum-of-squares base.\n\n";
+                preamble_constrained ~claim:input ~vars ~hypotheses ~target;
+                note
+                  (String.concat
+                     "\n"
+                     [ "No supported Positivstellensatz certificate was found. This is \
+                        not a"
+                     ; "disproof: the constrained search does not yet cover every case (a"
+                     ; "non-constant square multiplier, or a product of three or more"
+                     ; "hypotheses, needs the semidefinite step)."
+                     ]);
                 finish No_cert_found))
         | [] ->
           (match Prover.prove target with
@@ -223,20 +277,18 @@ let run_prove (input : string) =
                print_proved ~claim:input ~vars ~target ~cert;
                finish Proved)
              else (
-               print_preamble ~claim:input ~vars ~target;
-               print_string
-                 "The prover proposed a certificate, but the checker rejected it.\n\n";
+               preamble ~claim:input ~vars ~target;
+               note
+                 "The prover proposed a certificate, but the trusted checker rejected it.";
                finish Check_failed)
            | Prover.No_certificate_found ->
-             print_preamble ~claim:input ~vars ~target;
-             print_string
+             preamble ~claim:input ~vars ~target;
+             note
                (String.concat
                   "\n"
                   [ "No supported sum-of-squares certificate was found. This is not a"
-                  ; "disproof: the target may still be true but need a certificate the"
-                  ; "current prover cannot construct (e.g. one requiring an SDP)."
-                  ; ""
-                  ; ""
+                  ; "disproof: the target may be true but need a certificate this prover"
+                  ; "cannot yet build (e.g. one requiring the semidefinite step)."
                   ]);
              finish No_cert_found)))
 ;;
@@ -244,7 +296,7 @@ let run_prove (input : string) =
 let run_check (path : string) =
   match Constrained.load_any path with
   | Error msg ->
-    Printf.eprintf "Could not load certificate: %s\n" msg;
+    Printf.eprintf "error: could not load certificate: %s\n" msg;
     finish Invalid_input
   | Ok (Constrained.Unconstrained { claim_text; vars; target; certificate }) ->
     (match Checker.check target certificate with
@@ -252,8 +304,8 @@ let run_check (path : string) =
        print_proved ~claim:claim_text ~vars ~target ~cert:certificate;
        finish Proved
      | Checker.Rejected failure ->
-       print_preamble ~claim:claim_text ~vars ~target;
-       Printf.printf "Certificate rejected: %s\n\n" (string_of_failure ~vars failure);
+       preamble ~claim:claim_text ~vars ~target;
+       section "Rejected" (string_of_failure ~vars failure);
        finish Check_failed)
   | Ok (Constrained.Constrained { claim_text; vars; target; hypotheses; certificate }) ->
     warn_vacuous ~vars hypotheses;
@@ -267,8 +319,8 @@ let run_check (path : string) =
          ~cert:certificate;
        finish Proved
      | Checker.Rejected failure ->
-       print_preamble ~claim:claim_text ~vars ~target;
-       Printf.printf "Certificate rejected: %s\n\n" (string_of_failure ~vars failure);
+       preamble_constrained ~claim:claim_text ~vars ~hypotheses ~target;
+       section "Rejected" (string_of_failure ~vars failure);
        finish Check_failed)
 ;;
 

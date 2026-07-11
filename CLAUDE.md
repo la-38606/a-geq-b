@@ -64,6 +64,7 @@ lib/
   prover.ml       untrusted SOS search (Gram + rational LDLᵀ + grid) + constrained
   lean_export.ml  untrusted: certificate → checkable Lean proof (ring + positivity)
 bin/main.ml       CLI (--help, demo, prove, check, lean)
+bin/style.ml      terminal presentation: faint labels + result colour, TTY-gated
 test/             test_{polynomial,parser,checker,prover,lean_export}.ml (Alcotest)
 examples/         hello_world.cert.json, corrupted.cert.json
 lean/             verified checker (AeqbCheck.lean) + emitted Proofs.lean + regen.sh
