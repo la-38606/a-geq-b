@@ -400,11 +400,9 @@ let rec pairs : 'a list -> ('a * 'a) list = function
   | x :: xs -> List.map (fun y -> x, y) xs @ pairs xs
 ;;
 
-(** Attempt a Positivstellensatz certificate that [target >= 0] on the region cut
-    out by [hypotheses], using constant hypothesis-multipliers and the
-    unconstrained SOS {!prove} on the residual (see the note above). Any
-    candidate is re-checked by the trusted {!Checker}. *)
-let prove_constrained ~(hypotheses : Constrained.hypothesis list) (target : Polynomial.t)
+(* Search for a certificate with CONSTANT hypothesis-multipliers: base SOS plus a
+   grid of constant multiples of the hypotheses (see the note above). *)
+let prove_by_constants ~(hypotheses : Constrained.hypothesis list) (target : Polynomial.t)
   : constrained_result
   =
   (* Candidate active-assignments, cheapest first. *)
@@ -440,6 +438,137 @@ let prove_constrained ~(hypotheses : Constrained.hypothesis list) (target : Poly
        | None -> go rest)
   in
   go (none @ uniform @ singles @ doubles)
+;;
+
+(* --- polynomial multipliers on equality hypotheses --------------------- *)
+(*                                                                         *)
+(* For a vanishing hypothesis h = 0, ANY polynomial multiple lambda*h is 0 *)
+(* on the domain, so we may reduce the target modulo h by exact polynomial *)
+(* division: target = q*h + r, and q is exactly the multiplier we want. We *)
+(* then only need the remainder r to be provable (SOS, possibly using the  *)
+(* nonnegative hypotheses).  Division is under {!Monomial.compare}, which  *)
+(* is the lexicographic order — a genuine (multiplication-compatible,      *)
+(* well-founded) monomial order, so the reduction terminates.  The trusted *)
+(* checker still re-verifies everything, so a bug here only misses proofs. *)
+
+(* Term of [p] with the largest monomial under {!Monomial.compare}. *)
+let leading (p : Polynomial.t) : (Monomial.t * Rational.t) option =
+  List.fold_left
+    (fun acc (m, c) ->
+       match acc with
+       | Some (mm, _) when Monomial.compare m mm <= 0 -> acc
+       | _ -> Some (m, c))
+    None
+    (Polynomial.to_list p)
+;;
+
+(* Does monomial [a] divide monomial [b] (exponent-wise, padding with zeros)? *)
+let mono_divides (a : Monomial.t) (b : Monomial.t) : bool =
+  let rec go xs ys =
+    match xs, ys with
+    | [], _ -> true
+    | _ :: _, [] -> false
+    | x :: xs, y :: ys -> x <= y && go xs ys
+  in
+  go (Monomial.exponents a) (Monomial.exponents b)
+;;
+
+(* [b / a] as a monomial ([a] must divide [b]). *)
+let mono_div (b : Monomial.t) (a : Monomial.t) : Monomial.t =
+  let rec go ys xs =
+    match ys, xs with
+    | ys, [] -> ys
+    | [], _ -> []
+    | y :: ys, x :: xs -> (y - x) :: go ys xs
+  in
+  Monomial.canonical (go (Monomial.exponents b) (Monomial.exponents a))
+;;
+
+(* Divide [f] by a nonzero [g]: returns [(q, r)] with [f = q*g + r] and no term
+   of [r] divisible by the leading monomial of [g]. *)
+let reduce (f : Polynomial.t) (g : Polynomial.t) : Polynomial.t * Polynomial.t =
+  match leading g with
+  | None -> Polynomial.zero, f (* g = 0: no reduction *)
+  | Some (lm_g, lc_g) ->
+    let rec go p q r =
+      match leading p with
+      | None -> q, r
+      | Some (lm_p, lc_p) ->
+        if mono_divides lm_g lm_p
+        then (
+          let factor =
+            Polynomial.monomial (mono_div lm_p lm_g) (Rational.div lc_p lc_g)
+          in
+          go (Polynomial.sub p (Polynomial.mul factor g)) (Polynomial.add q factor) r)
+        else (
+          let lt = Polynomial.monomial lm_p lc_p in
+          go (Polynomial.sub p lt) q (Polynomial.add r lt))
+    in
+    go f Polynomial.zero Polynomial.zero
+;;
+
+(* Reduce [target] successively by the equality-hypothesis polynomials, returning
+   the [Times_zero] products for the nonzero quotients and the final remainder;
+   [target = sum (q_j * h_j) + remainder]. *)
+let reduce_by_zeros (target : Polynomial.t) (zeros : Polynomial.t list)
+  : Constrained.product list * Polynomial.t
+  =
+  List.fold_left
+    (fun (products, current) h ->
+       if Polynomial.is_zero h
+       then products, current
+       else (
+         let q, r = reduce current h in
+         let products =
+           if Polynomial.is_zero q
+           then products
+           else Constrained.times_zero ~multiplier:q ~zero:h :: products
+         in
+         products, r))
+    ([], target)
+    zeros
+;;
+
+(** Attempt a Positivstellensatz certificate that [target >= 0] on the region cut
+    out by [hypotheses]. First it searches with constant hypothesis-multipliers
+    and an SOS base ({!prove}); failing that, it reduces the target modulo the
+    equality hypotheses (polynomial division, giving polynomial multipliers) and
+    proves the remainder over the nonnegative hypotheses. Every candidate is
+    re-checked by the trusted {!Checker}, so the search can only miss a proof,
+    never produce a false one. *)
+let prove_constrained ~(hypotheses : Constrained.hypothesis list) (target : Polynomial.t)
+  : constrained_result
+  =
+  match prove_by_constants ~hypotheses target with
+  | Proved_constrained _ as proved -> proved
+  | No_constrained_certificate ->
+    let zeros =
+      List.filter_map
+        (function
+          | Constrained.Zero h -> Some h
+          | Nonneg _ -> None)
+        hypotheses
+    in
+    (match zeros with
+     | [] -> No_constrained_certificate
+     | _ :: _ ->
+       let nonnegs =
+         List.filter
+           (function
+             | Constrained.Nonneg _ -> true
+             | Zero _ -> false)
+           hypotheses
+       in
+       let eq_products, remainder = reduce_by_zeros target zeros in
+       (match prove_by_constants ~hypotheses:nonnegs remainder with
+        | No_constrained_certificate -> No_constrained_certificate
+        | Proved_constrained inner ->
+          let cert =
+            Constrained.make ~base:inner.base ~products:(inner.products @ eq_products)
+          in
+          if Checker.check_constrained_ok ~hypotheses target cert
+          then Proved_constrained cert
+          else No_constrained_certificate))
 ;;
 
 (* ---------------------------------------------------------------------- *)

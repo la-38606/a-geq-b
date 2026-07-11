@@ -109,7 +109,8 @@ let not_provable_c (s : string) () =
   | Prover.Proved_constrained _ -> Alcotest.failf "prover unsoundly proved: %s" s
 ;;
 
-(* Handled by the first cut: constant multipliers + an SOS base. *)
+(* Handled by the constrained search: constant multipliers + an SOS base, and
+   polynomial multipliers on equalities via reduction. *)
 let provable_constrained_cases =
   [ "a^2 >= 0" (* no side conditions: base only *)
   ; "a + b >= 0 given a >= 0, b >= 0" (* pair of nonneg hypotheses *)
@@ -117,15 +118,16 @@ let provable_constrained_cases =
   ; "a + b + c >= 0 given a >= 0, b >= 0, c >= 0" (* uniform over 3 nonnegs *)
   ; "a >= 0 given a - 1 >= 0" (* nonneg hyp plus a constant base *)
   ; "a^2 + b^2 >= 2 given a*b = 1" (* equality hyp, constant multiplier *)
+  ; "a^2 >= b^2 given a = b" (* equality, linear polynomial multiplier a+b *)
+  ; "a^3 >= b^3 given a = b" (* equality, quadratic multiplier a^2+ab+b^2 *)
   ]
 ;;
 
-(* Beyond the first cut, so must return No_constrained_certificate — never a
-   false proof: products of hypotheses (Schmüdgen), polynomial multipliers, and
-   claims a hypothesis does not actually support. *)
+(* Beyond the search, so must return No_constrained_certificate — never a false
+   proof: products of hypotheses (Schmüdgen) and claims a hypothesis does not
+   actually support. *)
 let unprovable_constrained_cases =
   [ "a*b >= 0 given a >= 0, b >= 0" (* needs the product a*b *)
-  ; "a^3 >= b^3 given a = b" (* needs a polynomial multiplier a^2+ab+b^2 *)
   ; "a >= 0 given b >= 0" (* irrelevant hypothesis; a may be negative *)
   ]
 ;;
