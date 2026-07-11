@@ -83,17 +83,20 @@ let expand_constrained (cert : Constrained.t) : Polynomial.t =
 (** Verify a Positivstellensatz certificate that [target >= 0] on the region cut
     out by [hypotheses].  It checks that
 
-    - every sum-of-squares part ([base] and each {!Constrained.Times_nonneg}
-      multiplier) has only nonnegative coefficients;
+    - every sum-of-squares part ([base] and each {!Constrained.Times_nonneg} or
+      {!Constrained.Times_product} multiplier) has only nonnegative coefficients;
     - every scaled polynomial is a declared hypothesis of the matching kind — a
       [Nonneg] hypothesis for a [Times_nonneg] term, a [Zero] hypothesis for a
-      [Times_zero] term (structural polynomial equality); and
+      [Times_zero] term, and every factor of a [Times_product] term a [Nonneg]
+      hypothesis (all by structural polynomial equality); and
     - [target] equals the certificate's expansion {i exactly}.
 
     Given those, on any point of the region [base >= 0], each [sigma_i g_i >= 0]
-    (nonnegative times a nonnegative hypothesis), and each [lambda_j h_j = 0]
-    (anything times a vanishing hypothesis); so [target >= 0] there.  As with
-    {!check}, soundness rests only on exact arithmetic and structural equality. *)
+    (nonnegative times a nonnegative hypothesis), each [lambda_j h_j = 0]
+    (anything times a vanishing hypothesis), and each [Times_product] term
+    [>= 0] (a square times a product of nonnegative hypotheses); so [target >= 0]
+    there.  As with {!check}, soundness rests only on exact arithmetic and
+    structural equality. *)
 let check_constrained
       ~(hypotheses : Constrained.hypothesis list)
       (target : Polynomial.t)
