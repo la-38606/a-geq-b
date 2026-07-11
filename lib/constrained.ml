@@ -82,6 +82,16 @@ let hypotheses_of_claim (ctx : Normalizer.context) (claim : Ast.claim) : hypothe
     claim.hyps
 ;;
 
+(** A hypothesis that is a constant (in)equality with no solutions, so it cuts
+    out an empty region: [c = 0] for a nonzero constant [c], or [c >= 0] for a
+    negative constant [c]. A claim "proved" under such a hypothesis holds only
+    vacuously, which is almost always a user mistake worth flagging. *)
+let is_impossible_constant : hypothesis -> bool = function
+  | Zero h -> Polynomial.degree h = 0 && not (Polynomial.is_zero h)
+  | Nonneg g ->
+    Polynomial.degree g = 0 && Rational.sign (Polynomial.coeff Monomial.one g) < 0
+;;
+
 (* --- rendering ---------------------------------------------------------- *)
 
 let string_of_hypothesis (vars : Pretty.vars) : hypothesis -> string = function

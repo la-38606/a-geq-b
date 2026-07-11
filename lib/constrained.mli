@@ -50,6 +50,11 @@ val make : base:Certificate.t -> products:product list -> t
     or a non-polynomial side condition. *)
 val hypotheses_of_claim : Normalizer.context -> Ast.claim -> hypothesis list
 
+(** A constant (in)equality with no solutions ([c = 0] for a nonzero constant, or
+    [c >= 0] for a negative constant): its region is empty, so any claim under it
+    holds only vacuously. *)
+val is_impossible_constant : hypothesis -> bool
+
 (** ["g >= 0"] or ["h = 0"]. *)
 val string_of_hypothesis : Pretty.vars -> hypothesis -> string
 

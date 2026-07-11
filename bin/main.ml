@@ -132,6 +132,20 @@ let print_proved_constrained ~claim ~vars ~hypotheses ~target ~cert =
     (Constrained.to_latex vars cert)
 ;;
 
+(* Warn (to stderr) about any hypothesis with an empty solution set: a claim
+   "proved" under it holds only vacuously. *)
+let warn_vacuous ~vars hypotheses =
+  List.iter
+    (fun h ->
+       if Constrained.is_impossible_constant h
+       then
+         Printf.eprintf
+           "Warning: the hypothesis '%s' has no solutions, so the claim holds only \
+            vacuously.\n"
+           (Constrained.string_of_hypothesis vars h))
+    hypotheses
+;;
+
 let string_of_failure ~vars = function
   | Checker.Negative_coefficient q ->
     Printf.sprintf "a certificate coefficient is negative: %s" (Rational.to_string q)
@@ -180,6 +194,7 @@ let run_prove (input : string) =
              Printf.eprintf "Could not reduce a side condition: %s\n" msg;
              finish Invalid_input
            | hypotheses ->
+             warn_vacuous ~vars hypotheses;
              (match Prover.prove_constrained ~hypotheses target with
               | Prover.Proved_constrained cert ->
                 (* Untrusted output MUST pass the trusted checker before PROVED. *)
@@ -241,6 +256,7 @@ let run_check (path : string) =
        Printf.printf "Certificate rejected: %s\n\n" (string_of_failure ~vars failure);
        finish Check_failed)
   | Ok (Constrained.Constrained { claim_text; vars; target; hypotheses; certificate }) ->
+    warn_vacuous ~vars hypotheses;
     (match Checker.check_constrained ~hypotheses target certificate with
      | Checker.Verified ->
        print_proved_constrained

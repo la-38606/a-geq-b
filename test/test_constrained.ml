@@ -297,6 +297,19 @@ let test_given_le_normalizes () =
     (parsed_checks "a^3 >= 0 given 0 <= a" cube_cert)
 ;;
 
+let test_impossible_constant () =
+  let open Constrained in
+  let impossible = is_impossible_constant in
+  Alcotest.(check bool) "2 = 0 impossible" true (impossible (zero (Polynomial.of_int 2)));
+  Alcotest.(check bool) "0 = 0 fine" false (impossible (zero Polynomial.zero));
+  Alcotest.(check bool)
+    "-1 >= 0 impossible"
+    true
+    (impossible (nonneg (Polynomial.of_int (-1))));
+  Alcotest.(check bool) "1 >= 0 fine" false (impossible (nonneg Polynomial.one));
+  Alcotest.(check bool) "a >= 0 fine (not constant)" false (impossible (nonneg a))
+;;
+
 let () =
   Alcotest.run
     "constrained"
@@ -353,6 +366,10 @@ let () =
       , [ Alcotest.test_case "nonneg side condition" `Quick test_given_nonneg
         ; Alcotest.test_case "equality side condition" `Quick test_given_equality
         ; Alcotest.test_case "<= normalizes to nonneg" `Quick test_given_le_normalizes
+        ; Alcotest.test_case
+            "impossible constant hypothesis"
+            `Quick
+            test_impossible_constant
         ] )
     ]
 ;;
