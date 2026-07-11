@@ -60,6 +60,14 @@ individual proof can be **exported as a machine-checked Lean theorem**:
 kernel checks (`ring` for the SOS identity, `positivity` for nonnegativity). See
 [lean/README.md](lean/README.md).
 
+## Interface
+
+A≥B is a command-line tool. The `prove`, `check`, `lean`, and `demo` commands
+print a structured report (claim, reduced target, certificate, and status) using
+a small, restrained presentation system: aligned sections with a clear hierarchy,
+and a single result colour shown only on an interactive terminal (piped or
+redirected output stays plain and machine-readable, and `NO_COLOR` is respected).
+
 ## Constrained inequalities (Positivstellensatz)
 
 Many inequalities hold only on a region — `a ≥ 0`, `abc = 1`, `a + b + c = 1`.

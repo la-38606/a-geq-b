@@ -165,11 +165,11 @@ Ordered; each keeps the checker as the sole authority.
      `lean/regen.sh`) demonstrates it end to end. Possible extensions: cover the
      full corpus, and emit an explicit proof term rather than a tactic script.
 
-4. **UI (optional, Milestone 6).** Because the engine is pure OCaml, the clean
-   option is **js_of_ocaml**: compile the lib to run `prove`/`check`
-   in-browser (needs `zarith_stubs_js`, or swap the isolated `Rational` module
-   for a pure-OCaml bignum), with a `--json` output seam feeding a page that
-   renders the existing LaTeX via KaTeX. No server.
+4. **Interface (Milestone 6)** — the tool is deliberately **terminal-only**. The
+   CLI output is the interface, redesigned as a consistent, restrained
+   presentation system (`bin/style.ml`: faint labels, one result colour, TTY-gated
+   so piped output stays plain and `NO_COLOR` is honoured). A browser UI
+   (js_of_ocaml) was prototyped and removed; it is not pursued.
 
 Tri-language boundary once (1)+(3) land: **OCaml** = exact symbolic + trust,
 **Python** = numerical SDP (untrusted), **Lean** = formal proof of the trusted

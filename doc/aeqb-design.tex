@@ -793,27 +793,26 @@ can only ever produce a Lean file that fails to compile, never a false theorem.
 Much of the design is in place: the trusted checker and its Lean-verified twin
 (Section~\ref{sec:lean}), the exact SOS prover, denominator clearing, and the
 constrained search of Section~\ref{sec:constrained}. What is left sharpens the
-prover and rounds out the interface, and---as always---keeps the checker the sole
-authority.
+prover, and---as always---keeps the checker the sole authority.
 
-\begin{enumerate}[leftmargin=1.5em]
-  \item \textbf{A wide semidefinite prover.} The single biggest lever. Build the
-    monomial basis by the Newton-polytope reduction \eqref{eq:newton-basis} and
-    replace the bounded grid search with a genuine SDP over the affine family
-    \eqref{eq:match}: the exact core emits the Gram program, a numerical solver
-    (an interior-point method) returns an approximate PSD $Q$, and the core
-    recovers an exact certificate by \emph{Peyrl--Parrilo rounding}---projecting
-    the numerical Gram onto the affine subspace \eqref{eq:match}, which stays
-    rational and remains PSD when the numerical solution is strictly
-    interior---before re-verifying. The numerical code is thereby quarantined
-    cleanly behind the trust boundary. The constrained search of
-    Section~\ref{sec:constrained} wants the very same machinery for its hardest
-    cases: a non-constant square multiplier $\sigma_i$ on an inequality is itself
-    a Gram problem, and so is a product of three or more hypotheses.
-  \item \textbf{Interface.} Because the engine is pure functional code, it can be
-    compiled to run in the browser, exposing a small structured interface that
-    renders the existing \LaTeX{} proof output---no server required.
-\end{enumerate}
+\smallskip
+\noindent\textbf{A wide semidefinite prover.} The single remaining lever. Build
+the monomial basis by the Newton-polytope reduction \eqref{eq:newton-basis} and
+replace the bounded grid search with a genuine SDP over the affine family
+\eqref{eq:match}: the exact core emits the Gram program, a numerical solver (an
+interior-point method) returns an approximate PSD $Q$, and the core recovers an
+exact certificate by \emph{Peyrl--Parrilo rounding}---projecting the numerical
+Gram onto the affine subspace \eqref{eq:match}, which stays rational and remains
+PSD when the numerical solution is strictly interior---before re-verifying. The
+numerical code is thereby quarantined cleanly behind the trust boundary. The
+constrained search of Section~\ref{sec:constrained} wants the very same machinery
+for its hardest cases: a non-constant square multiplier $\sigma_i$ on an
+inequality is itself a Gram problem, and so is a product of three or more
+hypotheses.
+
+\smallskip
+\noindent The interface is deliberately the command line: \texttt{prove},
+\texttt{check}, and \texttt{lean} print a structured, aligned report.
 
 With the verified checker already in hand, finishing the wide prover would
 realise a principled three-language architecture: exact symbolic computation and
