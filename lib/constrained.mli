@@ -25,6 +25,10 @@ type product =
       { multiplier : Polynomial.t (** any polynomial [lambda] *)
       ; zero : Polynomial.t (** the [Zero] hypothesis it scales *)
       }
+  | Times_product of
+      { multiplier : Certificate.t (** an SOS [sigma >= 0] *)
+      ; factors : Polynomial.t list (** [Nonneg] hypotheses; their product is [>= 0] *)
+      } (** Schmüdgen: [sigma * (product factors)] *)
 
 (** [p = base + sum products], with [base] and every {!Times_nonneg} multiplier
     a sum of squares. *)
@@ -37,6 +41,7 @@ val nonneg : Polynomial.t -> hypothesis
 val zero : Polynomial.t -> hypothesis
 val times_nonneg : multiplier:Certificate.t -> nonneg:Polynomial.t -> product
 val times_zero : multiplier:Polynomial.t -> zero:Polynomial.t -> product
+val times_product : multiplier:Certificate.t -> factors:Polynomial.t list -> product
 val make : base:Certificate.t -> products:product list -> t
 
 (** Normalize a claim's [given] side conditions into hypotheses under the

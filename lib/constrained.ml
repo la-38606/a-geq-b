@@ -33,6 +33,13 @@ type product =
       { multiplier : Polynomial.t (** any polynomial [lambda] *)
       ; zero : Polynomial.t (** the [Zero] hypothesis [h] it scales *)
       } (** contributes [lambda * h], which is [0] on the domain *)
+  | Times_product of
+      { multiplier : Certificate.t (** an SOS [sigma], hence [>= 0] *)
+      ; factors : Polynomial.t list
+        (** [Nonneg] hypotheses; their product is [>= 0] on the domain *)
+      }
+  (** contributes [sigma * (product factors)], [>= 0] on the domain
+            (Schmüdgen: a square times a product of nonnegative hypotheses) *)
 
 (** A certificate that [p >= 0] on the set cut out by the hypotheses:
     [p = base + sum (sigma_i * g_i) + sum (lambda_j * h_j)].  [base] and every
@@ -51,6 +58,10 @@ let times_nonneg ~(multiplier : Certificate.t) ~(nonneg : Polynomial.t) : produc
 
 let times_zero ~(multiplier : Polynomial.t) ~(zero : Polynomial.t) : product =
   Times_zero { multiplier; zero }
+;;
+
+let times_product ~(multiplier : Certificate.t) ~(factors : Polynomial.t list) : product =
+  Times_product { multiplier; factors }
 ;;
 
 let make ~(base : Certificate.t) ~(products : product list) : t = { base; products }
@@ -89,6 +100,12 @@ let string_of_product (vars : Pretty.vars) : product -> string = function
       "(%s)*(%s)"
       (Pretty.string_of_poly vars multiplier)
       (Pretty.string_of_poly vars zero)
+  | Times_product { multiplier; factors } ->
+    String.concat
+      "*"
+      (Printf.sprintf "(%s)" (Certificate.to_string vars multiplier)
+       :: List.map (fun g -> Printf.sprintf "(%s)" (Pretty.string_of_poly vars g)) factors
+      )
 ;;
 
 (** Render the certificate's right-hand side [base + sum products]. *)
@@ -115,6 +132,13 @@ let latex_of_product (vars : Pretty.vars) : product -> string = function
       "\\left(%s\\right)\\left(%s\\right)"
       (Pretty.latex_of_poly vars multiplier)
       (Pretty.latex_of_poly vars zero)
+  | Times_product { multiplier; factors } ->
+    String.concat
+      ""
+      (Printf.sprintf "\\left(%s\\right)" (Certificate.to_latex vars multiplier)
+       :: List.map
+            (fun g -> Printf.sprintf "\\left(%s\\right)" (Pretty.latex_of_poly vars g))
+            factors)
 ;;
 
 let to_latex (vars : Pretty.vars) (cert : t) : string =
@@ -161,6 +185,13 @@ let product_json (vars : Pretty.vars) : product -> Yojson.Safe.t = function
       [ "kind", `String "zero"
       ; "multiplier", `String (Pretty.string_of_poly vars multiplier)
       ; "constraint", `String (Pretty.string_of_poly vars zero)
+      ]
+  | Times_product { multiplier; factors } ->
+    `Assoc
+      [ "kind", `String "product"
+      ; "multiplier", sos_json vars multiplier
+      ; ( "constraints"
+        , `List (List.map (fun g -> `String (Pretty.string_of_poly vars g)) factors) )
       ]
 ;;
 
@@ -257,6 +288,16 @@ let of_json (json : Yojson.Safe.t) : (parsed, string) result =
         times_zero
           ~multiplier:(poly_of_string ~vars (string_field j "multiplier"))
           ~zero:(poly_of_string ~vars (string_field j "constraint"))
+      | "product" ->
+        let factors =
+          try
+            U.member "constraints" j
+            |> U.to_list
+            |> List.map (fun v -> poly_of_string ~vars (U.to_string v))
+          with
+          | U.Type_error _ -> raise (Bad "product term needs a 'constraints' list")
+        in
+        times_product ~multiplier:(parse_sos (U.member "multiplier" j)) ~factors
       | k -> raise (Bad (Printf.sprintf "unknown product kind %S" k))
     in
     let hypotheses =

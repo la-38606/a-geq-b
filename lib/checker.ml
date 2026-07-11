@@ -74,6 +74,8 @@ let expand_constrained (cert : Constrained.t) : Polynomial.t =
   let contribution : Constrained.product -> Polynomial.t = function
     | Times_nonneg { multiplier; nonneg } -> Polynomial.mul (expand multiplier) nonneg
     | Times_zero { multiplier; zero } -> Polynomial.mul multiplier zero
+    | Times_product { multiplier; factors } ->
+      List.fold_left Polynomial.mul (expand multiplier) factors
   in
   Polynomial.sum (expand cert.base :: List.map contribution cert.products)
 ;;
@@ -103,30 +105,35 @@ let check_constrained
     :: List.filter_map
          (function
            | Constrained.Times_nonneg { multiplier; _ } -> Some multiplier
+           | Times_product { multiplier; _ } -> Some multiplier
            | Times_zero _ -> None)
          cert.products
   in
   match List.find_map negative_coeff sos_parts with
   | Some c -> Rejected (Negative_coefficient c)
   | None ->
-    let is_hypothesis (matches : Constrained.hypothesis -> bool) =
-      List.exists matches hypotheses
+    let is_nonneg_hypothesis g =
+      List.exists
+        (function
+          | Constrained.Nonneg g' -> Polynomial.equal g g'
+          | Zero _ -> false)
+        hypotheses
     in
     let undeclared : Constrained.product -> Polynomial.t option = function
       | Times_nonneg { nonneg; _ } ->
-        if
-          is_hypothesis (function
-            | Constrained.Nonneg g -> Polynomial.equal g nonneg
-            | Zero _ -> false)
-        then None
-        else Some nonneg
+        if is_nonneg_hypothesis nonneg then None else Some nonneg
       | Times_zero { zero; _ } ->
         if
-          is_hypothesis (function
-            | Constrained.Zero h -> Polynomial.equal h zero
-            | Nonneg _ -> false)
+          List.exists
+            (function
+              | Constrained.Zero h -> Polynomial.equal h zero
+              | Nonneg _ -> false)
+            hypotheses
         then None
         else Some zero
+      | Times_product { factors; _ } ->
+        (* Every factor must be a declared nonnegative hypothesis. *)
+        List.find_opt (fun g -> not (is_nonneg_hypothesis g)) factors
     in
     (match List.find_map undeclared cert.products with
      | Some g -> Rejected (Unknown_constraint g)

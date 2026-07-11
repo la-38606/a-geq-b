@@ -1,0 +1,15 @@
+{
+  "_comment": "Schmüdgen product term: a*b >= 0 on {a >= 0, b >= 0}, via the SOS multiplier 1 times the product of the two nonnegative hypotheses a and b.",
+  "claim": "a*b >= 0",
+  "variables": ["a", "b"],
+  "hypotheses": [
+    { "poly": "a", "kind": "nonneg" },
+    { "poly": "b", "kind": "nonneg" }
+  ],
+  "certificate": {
+    "base": [],
+    "products": [
+      { "kind": "product", "multiplier": [{ "coeff": "1", "poly": "1" }], "constraints": ["a", "b"] }
+    ]
+  }
+}

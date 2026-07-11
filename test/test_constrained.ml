@@ -36,6 +36,16 @@ let eq_cert =
     ~products:[ Constrained.times_zero ~multiplier:a_plus_1 ~zero:a_minus_1 ]
 ;;
 
+(* a*b >= 0  given  a >= 0, b >= 0, via the product hypothesis a*b (Schmüdgen). *)
+let ab = Polynomial.mul a b
+let prod_hyps = [ Constrained.nonneg a; Constrained.nonneg b ]
+
+let prod_cert =
+  Constrained.make
+    ~base:[]
+    ~products:[ Constrained.times_product ~multiplier:[ sq one ] ~factors:[ a; b ] ]
+;;
+
 let test_accepts_nonneg () =
   Alcotest.(check bool)
     "a^3 >= 0 given a >= 0 accepted"
@@ -62,6 +72,13 @@ let test_accepts_with_base () =
     "a^3 + b^2 >= 0 given a >= 0 accepted"
     true
     (Checker.check_constrained_ok ~hypotheses:cube_hyps target cert)
+;;
+
+let test_accepts_product () =
+  Alcotest.(check bool)
+    "a*b >= 0 given a >= 0, b >= 0 accepted (product of hypotheses)"
+    true
+    (Checker.check_constrained_ok ~hypotheses:prod_hyps ab prod_cert)
 ;;
 
 let test_expand_equals_target () =
@@ -119,6 +136,26 @@ let test_rejects_wrong_expansion () =
   | _ -> Alcotest.fail "expected Mismatch rejection"
 ;;
 
+let test_rejects_product_undeclared_factor () =
+  (* Only a is declared nonneg; the product factor b is not a hypothesis. *)
+  match Checker.check_constrained ~hypotheses:[ Constrained.nonneg a ] ab prod_cert with
+  | Checker.Rejected (Checker.Unknown_constraint _) -> ()
+  | _ -> Alcotest.fail "expected Unknown_constraint for an undeclared product factor"
+;;
+
+let test_rejects_product_zero_factor () =
+  (* a is only a Zero hypothesis; a product factor must be a Nonneg hypothesis. *)
+  match
+    Checker.check_constrained
+      ~hypotheses:[ Constrained.zero a; Constrained.nonneg b ]
+      ab
+      prod_cert
+  with
+  | Checker.Rejected (Checker.Unknown_constraint _) -> ()
+  | _ ->
+    Alcotest.fail "expected Unknown_constraint for a Zero hyp used as a product factor"
+;;
+
 (* --- JSON --- *)
 
 let checks (p : Constrained.parsed) =
@@ -132,6 +169,20 @@ let test_json_roundtrip () =
   match Constrained.of_json json with
   | Error m -> Alcotest.fail ("round-trip parse failed: " ^ m)
   | Ok p -> Alcotest.(check bool) "round-tripped certificate still checks" true (checks p)
+;;
+
+let test_json_product_roundtrip () =
+  let json =
+    Constrained.to_json
+      ~claim:"a*b >= 0"
+      ~vars:[ "a"; "b" ]
+      ~hypotheses:prod_hyps
+      prod_cert
+  in
+  match Constrained.of_json json with
+  | Error m -> Alcotest.fail ("product round-trip failed: " ^ m)
+  | Ok p ->
+    Alcotest.(check bool) "product certificate round-trips and checks" true (checks p)
 ;;
 
 let test_of_string_valid () =
@@ -252,6 +303,7 @@ let () =
     [ ( "accept"
       , [ Alcotest.test_case "nonneg hypothesis" `Quick test_accepts_nonneg
         ; Alcotest.test_case "zero hypothesis" `Quick test_accepts_zero
+        ; Alcotest.test_case "product of hypotheses" `Quick test_accepts_product
         ; Alcotest.test_case "with an SOS base" `Quick test_accepts_with_base
         ; Alcotest.test_case "expansion equals target" `Quick test_expand_equals_target
         ] )
@@ -269,9 +321,18 @@ let () =
             `Quick
             test_rejects_wrong_kind
         ; Alcotest.test_case "wrong expansion" `Quick test_rejects_wrong_expansion
+        ; Alcotest.test_case
+            "undeclared product factor"
+            `Quick
+            test_rejects_product_undeclared_factor
+        ; Alcotest.test_case
+            "zero hyp as a product factor"
+            `Quick
+            test_rejects_product_zero_factor
         ] )
     ; ( "json"
       , [ Alcotest.test_case "round-trip" `Quick test_json_roundtrip
+        ; Alcotest.test_case "product round-trip" `Quick test_json_product_roundtrip
         ; Alcotest.test_case "parse a valid certificate" `Quick test_of_string_valid
         ; Alcotest.test_case
             "parse then reject a corrupted one"
