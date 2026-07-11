@@ -120,15 +120,16 @@ let provable_constrained_cases =
   ; "a^2 + b^2 >= 2 given a*b = 1" (* equality hyp, constant multiplier *)
   ; "a^2 >= b^2 given a = b" (* equality, linear polynomial multiplier a+b *)
   ; "a^3 >= b^3 given a = b" (* equality, quadratic multiplier a^2+ab+b^2 *)
+  ; "a*b >= 0 given a >= 0, b >= 0" (* product of two nonneg hypotheses (Schmüdgen) *)
   ]
 ;;
 
 (* Beyond the search, so must return No_constrained_certificate — never a false
-   proof: products of hypotheses (Schmüdgen) and claims a hypothesis does not
-   actually support. *)
+   proof: a claim a hypothesis does not support, and a triple product (only pairs
+   of hypotheses are tried). *)
 let unprovable_constrained_cases =
-  [ "a*b >= 0 given a >= 0, b >= 0" (* needs the product a*b *)
-  ; "a >= 0 given b >= 0" (* irrelevant hypothesis; a may be negative *)
+  [ "a >= 0 given b >= 0" (* irrelevant hypothesis; a may be negative *)
+  ; "a*b*c >= 0 given a >= 0, b >= 0, c >= 0" (* needs the triple product a*b*c *)
   ]
 ;;
 

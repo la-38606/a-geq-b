@@ -529,46 +529,102 @@ let reduce_by_zeros (target : Polynomial.t) (zeros : Polynomial.t list)
     zeros
 ;;
 
+let nonneg_polys (hypotheses : Constrained.hypothesis list) : Polynomial.t list =
+  List.filter_map
+    (function
+      | Constrained.Nonneg g -> Some g
+      | Zero _ -> None)
+    hypotheses
+;;
+
+(* Polynomial multipliers on equalities: reduce the target modulo the equality
+   hypotheses, then prove the remainder over the nonnegative hypotheses. *)
+let prove_by_reduction ~(hypotheses : Constrained.hypothesis list) (target : Polynomial.t)
+  : constrained_result
+  =
+  let zeros =
+    List.filter_map
+      (function
+        | Constrained.Zero h -> Some h
+        | Nonneg _ -> None)
+      hypotheses
+  in
+  match zeros with
+  | [] -> No_constrained_certificate
+  | _ :: _ ->
+    let nonnegs =
+      List.filter
+        (function
+          | Constrained.Nonneg _ -> true
+          | Zero _ -> false)
+        hypotheses
+    in
+    let eq_products, remainder = reduce_by_zeros target zeros in
+    (match prove_by_constants ~hypotheses:nonnegs remainder with
+     | No_constrained_certificate -> No_constrained_certificate
+     | Proved_constrained inner ->
+       let cert =
+         Constrained.make ~base:inner.base ~products:(inner.products @ eq_products)
+       in
+       if Checker.check_constrained_ok ~hypotheses target cert
+       then Proved_constrained cert
+       else No_constrained_certificate)
+;;
+
+(* Schmüdgen products: for each pair of nonnegative hypotheses g_i, g_j and a
+   constant c >= 0, subtract c * g_i * g_j and try to prove the remainder as an
+   SOS base. The certificate term is [c] (a degree-0 SOS) times the product
+   [g_i * g_j] of two nonnegative hypotheses. *)
+let prove_by_products ~(hypotheses : Constrained.hypothesis list) (target : Polynomial.t)
+  : constrained_result
+  =
+  let candidates =
+    List.concat_map
+      (fun (gi, gj) ->
+         let product = Polynomial.mul gi gj in
+         List.map (fun c -> c, gi, gj, product) nonneg_muls)
+      (pairs (nonneg_polys hypotheses))
+  in
+  let rec go = function
+    | [] -> No_constrained_certificate
+    | (c, gi, gj, product) :: rest ->
+      let residual = Polynomial.sub target (Polynomial.scalar_mul c product) in
+      (match prove residual with
+       | No_certificate_found -> go rest
+       | Proved base ->
+         let cert =
+           Constrained.make
+             ~base
+             ~products:
+               [ Constrained.times_product
+                   ~multiplier:[ Certificate.term c Polynomial.one ]
+                   ~factors:[ gi; gj ]
+               ]
+         in
+         if Checker.check_constrained_ok ~hypotheses target cert
+         then Proved_constrained cert
+         else go rest)
+  in
+  go candidates
+;;
+
 (** Attempt a Positivstellensatz certificate that [target >= 0] on the region cut
-    out by [hypotheses]. First it searches with constant hypothesis-multipliers
-    and an SOS base ({!prove}); failing that, it reduces the target modulo the
-    equality hypotheses (polynomial division, giving polynomial multipliers) and
-    proves the remainder over the nonnegative hypotheses. Every candidate is
-    re-checked by the trusted {!Checker}, so the search can only miss a proof,
-    never produce a false one. *)
+    out by [hypotheses], trying in turn: constant hypothesis-multipliers with an
+    SOS base ({!prove}); polynomial multipliers on the equality hypotheses (by
+    reduction modulo the constraint); and products of two nonnegative hypotheses
+    (Schmüdgen). Every candidate is re-checked by the trusted {!Checker}, so the
+    search can only miss a proof, never produce a false one. *)
 let prove_constrained ~(hypotheses : Constrained.hypothesis list) (target : Polynomial.t)
   : constrained_result
   =
-  match prove_by_constants ~hypotheses target with
-  | Proved_constrained _ as proved -> proved
-  | No_constrained_certificate ->
-    let zeros =
-      List.filter_map
-        (function
-          | Constrained.Zero h -> Some h
-          | Nonneg _ -> None)
-        hypotheses
-    in
-    (match zeros with
-     | [] -> No_constrained_certificate
-     | _ :: _ ->
-       let nonnegs =
-         List.filter
-           (function
-             | Constrained.Nonneg _ -> true
-             | Zero _ -> false)
-           hypotheses
-       in
-       let eq_products, remainder = reduce_by_zeros target zeros in
-       (match prove_by_constants ~hypotheses:nonnegs remainder with
-        | No_constrained_certificate -> No_constrained_certificate
-        | Proved_constrained inner ->
-          let cert =
-            Constrained.make ~base:inner.base ~products:(inner.products @ eq_products)
-          in
-          if Checker.check_constrained_ok ~hypotheses target cert
-          then Proved_constrained cert
-          else No_constrained_certificate))
+  let ( <|> ) first next =
+    match first with
+    | Proved_constrained _ as proved -> proved
+    | No_constrained_certificate -> next ()
+  in
+  prove_by_constants ~hypotheses target
+  <|> (fun () -> prove_by_reduction ~hypotheses target)
+  <|> fun () -> prove_by_products ~hypotheses target
 ;;
 
 (* ---------------------------------------------------------------------- *)
