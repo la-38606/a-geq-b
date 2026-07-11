@@ -134,7 +134,17 @@ let test_claim_given_equality () =
 let test_rejections () =
   List.iter
     (fun s -> expr_rejected s ())
-    [ "a +"; "a ** b"; "a b"; ""; "("; "a^"; "a^-1"; "*a"; "1/0" ];
+    [ "a +"
+    ; "a ** b"
+    ; "a b"
+    ; ""
+    ; "("
+    ; "a^"
+    ; "a^-1"
+    ; "*a"
+    ; "1/0"
+    ; "a^1000000000" (* exponent past the cap: guarded, not a hang *)
+    ];
   List.iter
     (fun s -> claim_rejected s ())
     [ "a >= "

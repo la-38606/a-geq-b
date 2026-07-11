@@ -181,6 +181,11 @@ let p_number (c : cursor) : Rational.t =
   | _ -> raise (Error_msg "expected a number")
 ;;
 
+(* A generous cap on literal exponents. Real inequalities here are low degree
+   (the corpus tops out at 8); this only guards against pathological input like
+   [a^1000000000], where [Polynomial.pow] would otherwise hang. *)
+let max_exponent = 100
+
 let rec p_base (c : cursor) : Ast.expr =
   match peek c with
   | INT _ -> Ast.Const (p_number c)
@@ -206,6 +211,9 @@ and p_factor (c : cursor) : Ast.expr =
      | INT k ->
        advance c;
        if k < 0 then raise (Error_msg "negative exponent");
+       if k > max_exponent
+       then
+         raise (Error_msg (Printf.sprintf "exponent too large (maximum %d)" max_exponent));
        Ast.Pow (b, k)
      | _ -> raise (Error_msg "expected an integer exponent after '^'"))
   | _ -> b
