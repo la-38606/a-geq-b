@@ -81,14 +81,19 @@ Write side conditions with `given`:
 a-geq-b prove "a^2 + b^2 >= 2 given a*b = 1"
   ...  = (a - b)^2 + 2*(a*b - 1)
 
+a-geq-b prove "a^3 >= b^3 given a = b"
+  ...  = (a^2 + a*b + b^2)*(a - b)
+
 a-geq-b prove "a + b >= 0 given a >= 0, b >= 0"
 a-geq-b check examples/constrained.cert.json
 ```
 
-The constrained search is a first cut — constant hypothesis-multipliers with an
-SOS base — so it declines cases needing products of hypotheses (Schmüdgen) or
-polynomial multipliers. Those remain future work; the checker already accepts
-the full certificate shape.
+The search uses constant multipliers on the nonnegative hypotheses with an SOS
+base, and — for equality hypotheses — full polynomial multipliers found by
+reducing the target modulo the constraint (so `a^3 >= b^3 given a = b` works).
+It still declines cases needing **products** of hypotheses (Schmüdgen, e.g.
+`a*b >= 0` from `a, b >= 0`); that remains future work, though the checker
+already accepts the full certificate shape.
 
 ## What is implemented in this skeleton
 
