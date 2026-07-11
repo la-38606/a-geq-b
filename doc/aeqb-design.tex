@@ -70,19 +70,22 @@
 
 \begin{abstract}
 \noindent
-A\,$\ge$\,B is a standalone system that proves polynomial inequalities of the
-form $A \ge B$ by rewriting them as $p = A - B \ge 0$ and certifying $p \ge 0$
-with a \emph{sum-of-squares} (SOS) decomposition $p = \sum_i c_i\,q_i^2$ with
-$c_i \in \Q_{\ge 0}$ and $q_i \in \Q[x_1,\dots,x_n]$. The system is built in the
-LCF tradition: an \emph{untrusted} search engine proposes certificates, and a
-small, \emph{trusted}, exact-rational \emph{checker} is the sole authority on
-whether an inequality is proved. This document develops the mathematics from
-first principles---nonnegativity, sum-of-squares certificates and their
-soundness, the Gram-matrix / semidefinite reformulation, \emph{Newton-polytope
-basis reduction}, and exact rational extraction via $LDL^{\top}$---and then
-describes the concrete system: exact
-representations, the trusted checker, the prover, denominator clearing, the
-validation harness, and the road to a formally verified checker in Lean~4.
+A\,$\ge$\,B proves polynomial inequalities $A \ge B$ by rewriting them as
+$p = A - B \ge 0$ and certifying $p \ge 0$ with a \emph{sum-of-squares}
+decomposition $p = \sum_i c_i\,q_i^2$ ($c_i \in \Q_{\ge 0}$,
+$q_i \in \Q[x_1,\dots,x_n]$), entirely in exact rational arithmetic. It is built
+in the LCF tradition: an \emph{untrusted} search engine proposes certificates,
+and a small, \emph{trusted} \emph{checker} is the sole authority on whether an
+inequality is proved---so a bug in the search can lose a proof, but never fake
+one. This document builds up the mathematics from the ground (nonnegativity and
+the gap between it and the SOS property, the Gram-matrix and semidefinite
+reformulation, \emph{Newton-polytope basis reduction}, and exact rational
+extraction by $LDL^{\top}$) and then the system that implements it: the exact
+representations, the trusted checker, the search, denominator clearing, and a
+benchmark corpus with its soundness gate. It also covers the two directions the
+project has since grown in---\emph{constrained} inequalities through a fragment
+of the Positivstellensatz, and a checker whose soundness, together with the
+individual proofs it licenses, is machine-verified in Lean~4.
 \end{abstract}
 
 \tableofcontents
@@ -92,13 +95,14 @@ validation harness, and the road to a formally verified checker in Lean~4.
 \section{Introduction}
 % ===========================================================================
 
-Deciding whether a multivariate polynomial is nonnegative on $\R^n$ is, in
-general, NP-hard. A practical and widely used relaxation restricts attention to
-polynomials that admit a \emph{certificate} of nonnegativity in the form of a
-sum of squares. Such certificates are attractive for two reasons. First, they
-are \emph{sound by inspection}: a sum of squares (with nonnegative coefficients)
-is manifestly nonnegative. Second, searching for them reduces to
-\emph{semidefinite programming}, a tractable convex problem.
+Deciding whether a multivariate polynomial is nonnegative on all of $\R^n$ is
+NP-hard in general, so any tool that wants to be both automatic and trustworthy
+has to give something up somewhere. The classical move is to ask for less:
+rather than test nonnegativity head-on, look for a \emph{certificate} of it in
+the shape of a sum of squares. Two things make that trade worth it. A sum of
+squares with nonnegative coefficients is nonnegative for a reason you can see at
+a glance---no oracle, no leap of faith---and the search for one collapses into
+\emph{semidefinite programming}, a convex problem we know how to solve.
 
 A\,$\ge$\,B applies this idea to the concrete task of proving inequalities such
 as
@@ -112,19 +116,24 @@ by exhibiting and verifying an explicit algebraic identity, here
 \]
 whose right-hand side is visibly nonnegative.
 
-The organising principle is the separation, due to the LCF family of proof
-assistants, between an \emph{untrusted engine} and a \emph{trusted kernel}. The
-engine may use any heuristic, numerical routine, or approximate solver; whatever
-it produces is re-verified, exactly, by a small checker. The program never
-reports \textsc{Proved} unless the checker accepts. Consequently a bug in the
-(complicated) search can only cause a \emph{missed} proof, never a false one.
-At the heart of the search is a \emph{Newton-polytope reduction} that fixes the
-monomial basis of the sum-of-squares problem canonically and minimally
-(Section~\ref{sec:newton}).
-Section~\ref{sec:foundations} develops the mathematics; Sections~%
-\ref{sec:representation}--\ref{sec:clearing} describe the system; Section~%
-\ref{sec:design} gives the architecture; and Section~\ref{sec:roadmap} sketches
-the remaining work, including formal verification of the checker in Lean~4.
+The organising principle is borrowed from the LCF family of proof assistants:
+keep an \emph{untrusted engine} and a \emph{trusted kernel} strictly apart. The
+engine is free to be as clever, heuristic, or numerical as it likes; whatever it
+comes up with is re-verified, exactly, by a small checker, and the program never
+prints \textsc{Proved} unless that checker accepts. The payoff is a comforting
+asymmetry: a bug anywhere in the complicated search can only cost us a proof, not
+manufacture a wrong one. Driving that search is a \emph{Newton-polytope
+reduction} that pins down the monomial basis of the SOS problem canonically, and
+as small as the mathematics allows (Section~\ref{sec:newton}).
+
+Section~\ref{sec:foundations} builds the mathematics; Sections~%
+\ref{sec:representation}--\ref{sec:clearing} describe the system and how it
+clears denominators; Section~\ref{sec:constrained} extends it to inequalities
+that hold only under side constraints; Section~\ref{sec:design} lays out the
+architecture and Section~\ref{sec:validation} the validation corpus; and
+Section~\ref{sec:lean} covers the formal verification, in Lean~4, of the
+checker---and of the individual proofs it licenses---before
+Section~\ref{sec:roadmap} sketches what is left.
 
 % ===========================================================================
 \section{Mathematical foundations}
@@ -510,10 +519,113 @@ same sign. Thus $N/D \ge 0 \iff N D \ge 0$. The claim follows, and note that no
 assumption is made on the sign of $D$.
 \end{proof}
 
-The construction proceeds by evaluating each subexpression to a pair
-$(\text{numerator}, \text{denominator})$ and combining fractions; when the input
+The construction proceeds by evaluating each subexpression to a
+numerator--denominator pair $(N, D)$ and combining fractions; when the input
 contains no division, $D \equiv 1$ and $p = A - B$ as before, so the polynomial
 case is recovered exactly.
+
+% ===========================================================================
+\section{Constrained inequalities: a fragment of the Positivstellensatz}
+\label{sec:constrained}
+% ===========================================================================
+
+Sum of squares proves an inequality \emph{everywhere} on $\R^n$. But a great
+many olympiad inequalities are not true everywhere; they hold only on a region,
+under hypotheses like $a,b,c \ge 0$, or on the surface $abc = 1$, or for the side
+lengths of a triangle. Off the feasible set such a target may well dip below
+zero, so a plain SOS decomposition cannot exist---and asking for one is the wrong
+question. What we want are certificates that are allowed to \emph{use} the
+hypotheses.
+
+The right generalisation is a fragment of the \emph{Positivstellensatz}. Say we
+want $p \ge 0$ on the set carved out by inequality constraints
+$g_1,\dots,g_m \ge 0$ and equality constraints $h_1,\dots,h_k = 0$. A certificate
+is an identity
+\begin{equation}\label{eq:psatz}
+  p \;=\; \sigma_0
+    \;+\; \sum_{i=1}^{m} \sigma_i\, g_i
+    \;+\; \sum_{j=1}^{k} \lambda_j\, h_j ,
+\end{equation}
+in which every $\sigma_i$ is a sum of squares and every $\lambda_j$ is an
+arbitrary polynomial. The soundness argument is as short as the one for plain
+SOS, and worth writing out because it says exactly what each piece is for.
+
+\begin{theorem}[Soundness of Positivstellensatz certificates]\label{thm:psatz}
+Suppose $p$ satisfies \eqref{eq:psatz} with each $\sigma_i$ a sum of squares.
+Then $p(\x) \ge 0$ at every point $\x$ with $g_i(\x) \ge 0$ for all $i$ and
+$h_j(\x) = 0$ for all $j$.
+\end{theorem}
+\begin{proof}
+Fix such an $\x$. Then $\sigma_0(\x) \ge 0$; each $\sigma_i(\x) \ge 0$ (a sum of
+squares) while $g_i(\x) \ge 0$, so $\sigma_i(\x)\,g_i(\x) \ge 0$; and each
+$\lambda_j(\x)\,h_j(\x) = \lambda_j(\x)\cdot 0 = 0$. The right-hand side of
+\eqref{eq:psatz} is thus a sum of nonnegative terms, giving $p(\x) \ge 0$.
+\end{proof}
+
+The two kinds of constraint play genuinely different roles, and the proof makes
+the difference visible. An inequality constraint contributes a nonnegative
+term---a square times something nonnegative---so its multiplier must itself be a
+sum of squares. An equality constraint contributes \emph{nothing}: it vanishes on
+the feasible set, so its multiplier $\lambda_j$ is unconstrained, free to be any
+polynomial of any sign. That asymmetry is mirrored exactly in the checker.
+
+\subsection{The checker, extended}
+
+The trusted core gains one function, \texttt{check\_constrained}, that verifies
+\eqref{eq:psatz}. It is handed the target $p$, the declared hypotheses, and a
+certificate whose terms are tagged by kind, and it confirms three things: every
+sum-of-squares part ($\sigma_0$ and each $\sigma_i$) has nonnegative
+coefficients; every polynomial being scaled really is one of the declared
+hypotheses \emph{of the matching kind}---a $g_i$ for an inequality term, an $h_j$
+for an equality term---compared by structural equality; and the expansion of the
+right-hand side equals $p$ exactly. The membership test is the subtle one, and it
+is not optional: without it a ``certificate'' could scale a polynomial that is
+negative somewhere and is not a stated assumption, and the whole thing would be
+unsound. With it, Theorem~\ref{thm:psatz} applies verbatim, and the trusted base
+is still nothing but exact arithmetic and structural equality.
+
+One further shape earns its own term. Schmüdgen's theorem reminds us that we
+sometimes need \emph{products} of the inequality constraints: from $a \ge 0$ and
+$b \ge 0$ we get $ab \ge 0$, but $ab$ is neither a hypothesis on its own nor a
+sum of squares. So the format also admits terms
+$\sigma \cdot g_{i_1} \cdots g_{i_r}$---a square times a product of declared
+nonnegative hypotheses. The checker validates each factor against the hypothesis
+list, and $(\text{square}) \times (\text{product of nonnegatives}) \ge 0$ closes
+the argument.
+
+\subsection{Finding the multipliers}
+
+Searching for the $\sigma_i$ and $\lambda_j$ is, in full generality, a
+semidefinite program again---now one Gram matrix per constraint. The prover does
+not solve that yet. Instead it tries three cheap, exact strategies in turn, each
+one re-checked by \texttt{check\_constrained} before anything is believed:
+
+\begin{itemize}[leftmargin=1.4em]
+  \item \textbf{Constant multipliers.} Let the $\sigma_i$ and $\lambda_j$ range
+    over a small grid of rational constants, subtract
+    $\sum c_i g_i + \sum d_j h_j$ from $p$, and hand the remainder to the
+    ordinary SOS prover to play the role of $\sigma_0$. This alone dispatches,
+    say, $a^2 + b^2 \ge 2$ given $ab = 1$, through
+    $a^2 + b^2 - 2 = (a-b)^2 + 2(ab - 1)$.
+  \item \textbf{Polynomial multipliers on equalities.} Since an equality
+    multiplier may be \emph{any} polynomial, we can compute one directly by exact
+    polynomial division: reduce $p$ modulo $h_j$ to get $p = \lambda_j h_j + r$,
+    then try to prove the remainder $r$. Division is taken with respect to the
+    lexicographic monomial order---a genuine, multiplication-compatible term
+    order, so the reduction always terminates---and it turns $a^3 \ge b^3$ given
+    $a = b$ into $a^3 - b^3 = (a^2 + ab + b^2)(a - b)$.
+  \item \textbf{Products of hypotheses.} For each pair of nonnegative hypotheses
+    $g_i, g_j$ and a constant $c$, subtract $c\,g_i g_j$ and prove the remainder.
+    This is what settles $ab \ge 0$ given $a, b \ge 0$.
+\end{itemize}
+
+These are deliberately modest. They miss anything that needs a truly non-constant
+square multiplier on an inequality, or a product of three or more hypotheses, and
+the general case is the same SDP story as the unconstrained prover
+(Section~\ref{sec:roadmap}). But they already reach a satisfying spread of
+constrained problems, and---like every other thing the search does---they cannot
+be wrong: a proposed certificate is believed only once the trusted checker has
+re-derived the identity \eqref{eq:psatz} for itself.
 
 % ===========================================================================
 \section{System design}
@@ -568,10 +680,13 @@ prover can cause a missed proof, never a false one.}
 The library is layered so that each module depends only on those below it, which
 keeps the trusted checker's dependencies minimal:
 \[
-  \textsf{Rational} \to \textsf{Monomial} \to \textsf{Polynomial}
-  \to \{\textsf{Ast},\ \textsf{Pretty}\}
-  \to \{\textsf{Parser},\ \textsf{Normalizer},\ \textsf{Certificate}\}
-  \to \textsf{Checker} \to \textsf{Prover}.
+  \begin{aligned}
+    \textsf{Rational} &\to \textsf{Monomial} \to \textsf{Polynomial}
+      \to \{\textsf{Ast},\ \textsf{Pretty}\} \\
+    &\to \{\textsf{Parser},\ \textsf{Normalizer},\ \textsf{Certificate},\
+      \textsf{Constrained}\}
+      \to \textsf{Checker} \to \textsf{Prover}.
+  \end{aligned}
 \]
 \textsf{Rational} is the sole point of contact with the bignum backend, which
 localises the exact-arithmetic dependency (and eases a future pure-rational or
@@ -580,22 +695,25 @@ formally verified reimplementation).
 \subsection{Command-line surface}
 
 The tool exposes \texttt{prove "<inequality>"} (parse, clear denominators, and
-search) and \texttt{check <cert.json>} (load and verify a certificate),
-reporting one of four statuses with matching exit codes:
-\textsc{Proved}, \textsc{No\_Cert\_Found}, \textsc{Invalid\_Input},
-\textsc{Check\_Failed}.
+search---side conditions may be attached with \texttt{given}, e.g.\
+\texttt{a*b >= 0 given a >= 0, b >= 0}); \texttt{check <cert.json>} (load and
+verify a certificate, plain or constrained); and \texttt{lean "<inequality>"}
+(prove, then emit a machine-checkable Lean proof, Section~\ref{sec:lean}). Every
+run reports one of four statuses with matching exit codes: \textsc{Proved},
+\textsc{No\_Cert\_Found}, \textsc{Invalid\_Input}, \textsc{Check\_Failed}.
 
 % ===========================================================================
 \section{Validation}
 \label{sec:validation}
 % ===========================================================================
 
-Correctness is defended empirically by a benchmark corpus of $119$ inequalities,
-each tagged by category and by the status the system should return
-(Table~\ref{tab:corpus}). The corpus is drawn from classical results (AM--GM,
-Cauchy--Schwarz, Schur), named competition problems (IMO, APMO, and national
-olympiads), and a standard olympiad reference; it also includes deliberate
-soundness traps.
+The proofs above argue that the system is sound; a benchmark corpus is how I keep
+myself honest that it is also \emph{useful}, and stays that way as the code
+changes. It holds $119$ inequalities, each tagged with a category and the status
+the system ought to return (Table~\ref{tab:corpus}), drawn from classical results
+(AM--GM, Cauchy--Schwarz, Schur), named competition problems (IMO, APMO, and
+several national olympiads), and a standard olympiad reference---together with a
+handful of deliberate soundness traps.
 
 \begin{table}[h]
 \centering
@@ -627,50 +745,82 @@ the perfect square
 prompting its reclassification as an unconditional SOS identity.
 
 % ===========================================================================
+\section{Formal verification in Lean 4}
+\label{sec:lean}
+% ===========================================================================
+
+Proposition~\ref{prop:checker} is the hinge the entire design turns on, so it is
+the one claim most worth putting beyond doubt. Two mechanisations in Lean~4, both
+complete, now do that---from two different angles.
+
+\subsection{A verified checker}
+
+The first reimplements the checker over Mathlib's
+\texttt{MvPolynomial (Fin\,$n$)\,$\Q$} and proves its soundness as a theorem the
+Lean kernel checks:
+\[
+  \texttt{checkSOS}\ p\ \mathit{cert} = \texttt{true}
+  \;\Longrightarrow\;
+  \forall\,\x : \mathrm{Fin}\,n \to \R,\ \ 0 \le \operatorname{aeval} \x\, p .
+\]
+This is Proposition~\ref{prop:checker}, word for word, and its proof is the
+formal shadow of Theorem~\ref{thm:soundness}: once \texttt{checkSOS} has forced
+the identity $p = \sum_i c_i q_i^2$, nonnegativity falls straight out of
+\texttt{sq\_nonneg}, \texttt{mul\_nonneg}, and \texttt{List.sum\_nonneg}. The
+proof is complete and axiom-clean---\texttt{\#print axioms} reports only the
+three standard Mathlib axioms (\texttt{propext}, \texttt{Classical.choice},
+\texttt{Quot.sound}) and not a single \texttt{sorry}. And because Lean~4 compiles
+to native code, this is not merely a proof \emph{about} a checker; it is a
+checker that runs, and could stand as an independent oracle beside the OCaml one.
+
+\subsection{One machine-checked proof per inequality}
+
+The second goes further and makes each individual \emph{proof} machine-checked.
+The command \texttt{a-geq-b lean "<inequality>"} runs the search, re-checks the
+certificate, and emits a self-contained Lean file: a theorem $0 \le p$ over real
+variables whose proof rewrites $p$ into its sum-of-squares form with
+\texttt{ring}---the identity the checker has already verified---and then closes
+it with \texttt{positivity}. Feeding that file to Lean has its kernel certify the
+result, so an $A \ge B$ proof becomes a theorem in a general-purpose proof
+assistant. It is untrusted output in the best possible sense: a bogus certificate
+can only ever produce a Lean file that fails to compile, never a false theorem.
+
+% ===========================================================================
 \section{Roadmap}
 \label{sec:roadmap}
 % ===========================================================================
 
-Four extensions complete the design; each preserves the checker as the sole
+Much of the design is in place: the trusted checker and its Lean-verified twin
+(Section~\ref{sec:lean}), the exact SOS prover, denominator clearing, and the
+constrained search of Section~\ref{sec:constrained}. What is left sharpens the
+prover and rounds out the interface, and---as always---keeps the checker the sole
 authority.
 
 \begin{enumerate}[leftmargin=1.5em]
-  \item \textbf{Newton-polytope basis and a wide semidefinite prover.} Build the
+  \item \textbf{A wide semidefinite prover.} The single biggest lever. Build the
     monomial basis by the Newton-polytope reduction \eqref{eq:newton-basis} and
-    replace the bounded grid search by a genuine SDP over the affine family
+    replace the bounded grid search with a genuine SDP over the affine family
     \eqref{eq:match}: the exact core emits the Gram program, a numerical solver
-    (e.g.\ an interior-point method) returns an approximate PSD $Q$, and the core
+    (an interior-point method) returns an approximate PSD $Q$, and the core
     recovers an exact certificate by \emph{Peyrl--Parrilo rounding}---projecting
-    the numerical Gram onto the affine subspace \eqref{eq:match}, which is
+    the numerical Gram onto the affine subspace \eqref{eq:match}, which stays
     rational and remains PSD when the numerical solution is strictly
-    interior---before re-verifying. The numerical code is thus cleanly
-    quarantined behind the trust boundary.
-  \item \textbf{Constrained inequalities.} Admit side constraints
-    ($a \ge 0$, $abc = 1$, triangle conditions) and search for
-    \emph{Positivstellensatz} certificates $p = \sigma_0 + \sum_i \sigma_i\,g_i$
-    with each $\sigma_i$ a sum of squares and $g_i$ a constraint. This subsumes
-    the bulk of olympiad inequalities.
-  \item \textbf{A formally verified checker in Lean~4.} Reimplement the checker
-    over \texttt{MvPolynomial (Fin n) \(\Q\)} and prove its soundness theorem,
-    \[
-      \texttt{check\_sos}\ p\ \mathit{cert} = \texttt{true}
-      \;\Longrightarrow\; \forall\, \x : \mathrm{Fin}\,n \to \R,\ 0 \le p.\mathrm{eval}\,\x,
-    \]
-    which is exactly Proposition~\ref{prop:checker} discharged mechanically. The
-    proof follows the pattern of Theorem~\ref{thm:soundness}
-    (\texttt{sq\_nonneg}, \texttt{mul\_nonneg}, \texttt{Finset.sum\_nonneg}) once
-    \texttt{check\_sos} establishes the identity. This upgrades the trusted core
-    from ``small and audited'' to machine-verified. (Lean~4 compiles to native
-    code, so the verified checker also runs.)
-  \item \textbf{Interface.} Because the engine is pure functional code, it can
-    be compiled to run in a browser, exposing a small structured interface that
-    renders the existing \LaTeX{} proof output.
+    interior---before re-verifying. The numerical code is thereby quarantined
+    cleanly behind the trust boundary. The constrained search of
+    Section~\ref{sec:constrained} wants the very same machinery for its hardest
+    cases: a non-constant square multiplier $\sigma_i$ on an inequality is itself
+    a Gram problem, and so is a product of three or more hypotheses.
+  \item \textbf{Interface.} Because the engine is pure functional code, it can be
+    compiled to run in the browser, exposing a small structured interface that
+    renders the existing \LaTeX{} proof output---no server required.
 \end{enumerate}
 
-Together, items~1 and~3 realise a principled three-language architecture: exact
-symbolic computation and the trusted core in a typed functional language,
-numerical semidefinite programming (untrusted) in the scientific-computing
-ecosystem, and a machine-checked proof of the kernel in a proof assistant.
+With the verified checker already in hand, finishing the wide prover would
+realise a principled three-language architecture: exact symbolic computation and
+the trusted core in a typed functional language (OCaml), numerical semidefinite
+programming---untrusted---in the scientific-computing ecosystem (Python), and a
+machine-checked proof of the kernel in a proof assistant (Lean~4). Each language
+does what it is best at, and only the smallest of them has to be believed.
 
 % ===========================================================================
 \section*{References (selected)}
