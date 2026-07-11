@@ -102,11 +102,12 @@ installing zarith).
 - **Constrained inequalities (Positivstellensatz)** — 🚧 in progress. Claims carry
   `given g >= 0, h = 0, ...` side conditions; `Checker.check_constrained`
   (trusted) verifies `p = base + Σ σ_i g_i + Σ λ_j h_j`, and
-  `Prover.prove_constrained` searches with constant multipliers on the nonneg
-  hypotheses + an SOS base, and full **polynomial multipliers on equalities**
-  (found by reducing the target modulo the constraint). Proves e.g.
-  `a^2+b^2 >= 2 given a*b = 1` and `a^3 >= b^3 given a = b`. Products of
-  hypotheses (Schmüdgen) are still future work.
+  `Prover.prove_constrained` chains three strategies: constant multipliers on the
+  nonneg hypotheses + an SOS base; **polynomial multipliers on equalities** (by
+  reducing the target modulo the constraint); and **products of two nonneg
+  hypotheses** (Schmüdgen). Proves e.g. `a^2+b^2 >= 2 given a*b = 1`,
+  `a^3 >= b^3 given a = b`, and `a*b >= 0 given a,b >= 0`. Larger hypothesis
+  products and SOS multipliers on nonnegs (the SDP case) are still future work.
 - **Lean 4 formally verified checker** (`lean/`) — ✅ the trusted core's soundness
   is machine-proved: `checkSOS_sound : checkSOS p cert = true -> forall x,
   0 <= aeval x p`, axiom-clean (no `sorry`). See `lean/README.md`.
@@ -135,14 +136,14 @@ Ordered; each keeps the checker as the sole authority.
    `Checker.check_constrained` verifies `p = sigma_0 + sum_i sigma_i g_i +
    sum_j lambda_j h_j` (each `sigma` an SOS), and `Prover.prove_constrained`
    searches with constant multipliers on the nonneg hypotheses over an SOS base,
-   and **polynomial multipliers on equalities** (reduction modulo the constraint,
-   e.g. `a^3 >= b^3` from `a = b` yields `a^2+ab+b^2`). Remaining work to unlock
-   the 50 `out_of_scope_v1` corpus targets (AM-GM, Schur, Nesbitt, the
-   IMO/Iran/Japan/book problems): **products of hypotheses** (Schmüdgen, e.g.
-   `a*b >= 0` from `a,b >= 0`; needs a checker extension to scale an SOS by a
-   product of nonneg hypotheses) and **SOS multipliers on the nonneg
-   hypotheses**, which want the wider SDP search from item 1. Largest remaining
-   capability jump.
+   **polynomial multipliers on equalities** (reduction modulo the constraint,
+   e.g. `a^3 >= b^3` from `a = b` yields `a^2+ab+b^2`), and **products of two
+   nonneg hypotheses** (Schmüdgen, e.g. `a*b >= 0` from `a,b >= 0`; the checker's
+   `Times_product` term scales an SOS by a product of nonneg hypotheses).
+   Remaining work to unlock the 50 `out_of_scope_v1` corpus targets (AM-GM,
+   Schur, Nesbitt, the IMO/Iran/Japan/book problems): products of three or more
+   hypotheses, and **SOS (non-constant) multipliers on the nonneg hypotheses**,
+   which want the wider SDP search from item 1. Largest remaining capability jump.
 
 3. **Formally verified checker in Lean 4** — ✅ both directions have a first cut.
    Upgrade the trusted core from "small and audited" to "machine-verified."

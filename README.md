@@ -84,16 +84,19 @@ a-geq-b prove "a^2 + b^2 >= 2 given a*b = 1"
 a-geq-b prove "a^3 >= b^3 given a = b"
   ...  = (a^2 + a*b + b^2)*(a - b)
 
-a-geq-b prove "a + b >= 0 given a >= 0, b >= 0"
+a-geq-b prove "a*b >= 0 given a >= 0, b >= 0"
+  ...  = (1)*(a)*(b)
+
 a-geq-b check examples/constrained.cert.json
 ```
 
-The search uses constant multipliers on the nonnegative hypotheses with an SOS
-base, and — for equality hypotheses — full polynomial multipliers found by
-reducing the target modulo the constraint (so `a^3 >= b^3 given a = b` works).
-It still declines cases needing **products** of hypotheses (Schmüdgen, e.g.
-`a*b >= 0` from `a, b >= 0`); that remains future work, though the checker
-already accepts the full certificate shape.
+The search combines three strategies: constant multipliers on the nonnegative
+hypotheses over an SOS base; full **polynomial multipliers on equalities**, found
+by reducing the target modulo the constraint (so `a^3 >= b^3 given a = b` works);
+and **products of two nonnegative hypotheses** (Schmüdgen, so `a*b >= 0` from
+`a, b >= 0` works). Still out of reach: products of three or more hypotheses, and
+SOS (non-constant) multipliers on the nonnegative hypotheses — those want the
+wider SDP search. The checker already accepts the full certificate shape.
 
 ## What is implemented in this skeleton
 
@@ -109,9 +112,9 @@ already accepts the full certificate shape.
 | `Certificate` — SOS term data, rendering, JSON read + write | ✅ done |
 | `Checker` — `check_sos` and `check_constrained` (Positivstellensatz), exact | ✅ done (trusted core) |
 | `Constrained` — hypotheses + Positivstellensatz certificate, JSON/LaTeX | ✅ done |
-| `Prover` — SOS search (Gram + rational LDLᵀ, grid search) + first-cut constrained search | 🚧 53/63 SOS corpus; constant-multiplier constrained search |
+| `Prover` — SOS search (Gram + rational LDLᵀ, grid) + constrained search (constant/polynomial multipliers, hypothesis products) | 🚧 53/63 SOS corpus |
 | CLI — `--help`, `demo`, `prove`, `check`, `lean` (export a Lean proof) | ✅ done |
-| Tests — `test_{polynomial,parser,checker,prover,lean_export,constrained}` | ✅ 110 cases |
+| Tests — `test_{polynomial,parser,checker,prover,lean_export,constrained}` | ✅ 116 cases |
 
 ### Canonical form (the key invariant)
 
