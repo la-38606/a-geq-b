@@ -106,7 +106,7 @@ the full certificate shape.
 | `Constrained` — hypotheses + Positivstellensatz certificate, JSON/LaTeX | ✅ done |
 | `Prover` — SOS search (Gram + rational LDLᵀ, grid search) + first-cut constrained search | 🚧 53/63 SOS corpus; constant-multiplier constrained search |
 | CLI — `--help`, `demo`, `prove`, `check`, `lean` (export a Lean proof) | ✅ done |
-| Tests — `test_{polynomial,parser,checker,prover,lean_export,constrained}` | ✅ 108 cases |
+| Tests — `test_{polynomial,parser,checker,prover,lean_export,constrained}` | ✅ 110 cases |
 
 ### Canonical form (the key invariant)
 
