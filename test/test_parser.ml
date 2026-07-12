@@ -215,6 +215,17 @@ let test_division_by_zero_rejected () =
      | exception Invalid_argument _ -> ())
 ;;
 
+let test_degree_cap () =
+  (* Nested powers compose to a huge degree; the normalizer must reject (not
+     hang) rather than build the polynomial. *)
+  match Parser.parse "((a + b)^80)^80 >= 0" with
+  | Error m -> Alcotest.failf "should parse: %s" m
+  | Ok c ->
+    (match Normalizer.poly_of_claim ~context:ctx c with
+     | _ -> Alcotest.fail "expected a degree-cap rejection"
+     | exception Invalid_argument _ -> ())
+;;
+
 (* --- JSON certificate loading ------------------------------------------- *)
 
 let hello_json =
@@ -339,6 +350,7 @@ let () =
             "division by zero rejected"
             `Quick
             test_division_by_zero_rejected
+        ; Alcotest.test_case "degree cap rejects nested powers" `Quick test_degree_cap
         ] )
     ; ( "json"
       , [ Alcotest.test_case "valid certificate loads and checks" `Quick test_json_valid

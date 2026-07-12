@@ -62,23 +62,48 @@ let vars_of_claim (c : Ast.claim) : context =
    Fractions are combined but not reduced to lowest terms — denominators grow,
    but the result is exact and that is all the checker needs. *)
 
+(* Cap the total degree of intermediate polynomials. The parser bounds a single
+   exponent, but nested or repeated powers compose multiplicatively --
+   [((a+b)^80)^80] is degree 6400 -- and would make [Polynomial.pow]/[mul] hang.
+   Each degree-increasing multiplication is guarded BEFORE it is computed, so the
+   oversized polynomial is never built. No real inequality here is high degree
+   (the corpus tops out at 8), so this only rejects pathological input. *)
+let max_degree = 100
+
+let too_big () =
+  invalid_arg
+    (Printf.sprintf
+       "Normalizer: intermediate degree exceeds the maximum of %d"
+       max_degree)
+;;
+
+let mul_capped (a : Polynomial.t) (b : Polynomial.t) : Polynomial.t =
+  if Polynomial.degree a + Polynomial.degree b > max_degree
+  then too_big ()
+  else Polynomial.mul a b
+;;
+
+let pow_capped (p : Polynomial.t) (k : int) : Polynomial.t =
+  if Polynomial.degree p * k > max_degree then too_big () else Polynomial.pow p k
+;;
+
 let rf_add (na, da) (nb, db) =
-  Polynomial.add (Polynomial.mul na db) (Polynomial.mul nb da), Polynomial.mul da db
+  Polynomial.add (mul_capped na db) (mul_capped nb da), mul_capped da db
 ;;
 
 let rf_sub (na, da) (nb, db) =
-  Polynomial.sub (Polynomial.mul na db) (Polynomial.mul nb da), Polynomial.mul da db
+  Polynomial.sub (mul_capped na db) (mul_capped nb da), mul_capped da db
 ;;
 
-let rf_mul (na, da) (nb, db) = Polynomial.mul na nb, Polynomial.mul da db
+let rf_mul (na, da) (nb, db) = mul_capped na nb, mul_capped da db
 
 let rf_div (na, da) (nb, db) =
   if Polynomial.is_zero nb
   then invalid_arg "Normalizer: division by zero"
-  else Polynomial.mul na db, Polynomial.mul da nb
+  else mul_capped na db, mul_capped da nb
 ;;
 
-let rf_pow (n, d) k = Polynomial.pow n k, Polynomial.pow d k
+let rf_pow (n, d) k = pow_capped n k, pow_capped d k
 
 (** Evaluate [e] to a rational function [(num, den)] under the variable ordering
     [ctx]. Raises [Invalid_argument] on an unknown variable or a division by
@@ -135,10 +160,10 @@ let poly_of_claim ?(context : context option) (c : Ast.claim) : context * Polyno
   in
   let na, da = ratfunc_of_expr ctx c.Ast.lhs in
   let nb, db = ratfunc_of_expr ctx c.Ast.rhs in
-  (* A - B = num / den *)
-  let num = Polynomial.sub (Polynomial.mul na db) (Polynomial.mul nb da) in
-  let den = Polynomial.mul da db in
-  let cleared = Polynomial.mul num den in
+  (* A - B = num / den; the clearing multiplications are degree-capped too. *)
+  let num = Polynomial.sub (mul_capped na db) (mul_capped nb da) in
+  let den = mul_capped da db in
+  let cleared = mul_capped num den in
   (* (A - B) * den^2 *)
   let p =
     match c.Ast.op with
