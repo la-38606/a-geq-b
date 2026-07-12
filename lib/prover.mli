@@ -29,6 +29,13 @@ val prove_constrained
   -> Polynomial.t
   -> constrained_result
 
+(** [true] iff the hypotheses are provably contradictory (they cut out an empty
+    region), detected by a Positivstellensatz refutation ([-1 >= 0] on the
+    region) that the trusted {!Checker} accepts. Incomplete: [false] means "not
+    shown", not "consistent". A claim proved under contradictory hypotheses holds
+    only vacuously. *)
+val hypotheses_infeasible : hypotheses:Constrained.hypothesis list -> bool
+
 (** {2 Built-in "hello world" example}
 
     [a^2 + b^2 + c^2 >= a*b + b*c + c*a], with the classic three-square

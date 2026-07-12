@@ -133,6 +133,32 @@ let unprovable_constrained_cases =
   ]
 ;;
 
+(* Contradictory hypothesis systems are detected by a Positivstellensatz
+   refutation; consistent ones are not flagged. *)
+let test_infeasible () =
+  let infeasible s =
+    let hypotheses, _ = constrained s in
+    Prover.hypotheses_infeasible ~hypotheses
+  in
+  Alcotest.(check bool)
+    "a - 1 >= 0, -a >= 0 is empty"
+    true
+    (infeasible "0 >= 1 given a - 1 >= 0, -a >= 0");
+  Alcotest.(check bool)
+    "a^2 + 1 = 0 is empty"
+    true
+    (infeasible "0 >= 1 given a^2 + 1 = 0");
+  Alcotest.(check bool)
+    "a = 0, a = 1 is empty"
+    true
+    (infeasible "0 >= 1 given a = 0, a = 1");
+  Alcotest.(check bool)
+    "a >= 0, b >= 0 is consistent"
+    false
+    (infeasible "a*b >= 0 given a >= 0, b >= 0");
+  Alcotest.(check bool) "no hypotheses" false (infeasible "a^2 >= 0")
+;;
+
 let () =
   Alcotest.run
     "prover"
@@ -149,5 +175,11 @@ let () =
       , List.map
           (fun s -> Alcotest.test_case s `Quick (not_provable_c s))
           unprovable_constrained_cases )
+    ; ( "infeasibility"
+      , [ Alcotest.test_case
+            "contradictory vs consistent hypotheses"
+            `Quick
+            test_infeasible
+        ] )
     ]
 ;;

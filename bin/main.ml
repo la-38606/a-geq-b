@@ -180,18 +180,27 @@ let print_proved_constrained ~claim ~vars ~hypotheses ~target ~cert =
        (Constrained.to_latex vars cert))
 ;;
 
-(* Warn (to stderr) about any hypothesis with an empty solution set: a claim
-   "proved" under it holds only vacuously. *)
+(* Warn (to stderr) when the hypotheses cut out an empty region, since a claim
+   "proved" under them holds only vacuously. First the cheap per-hypothesis check
+   (an impossible constant constraint, named specifically); failing that, a
+   general Positivstellensatz refutation that the whole system is contradictory. *)
 let warn_vacuous ~vars hypotheses =
+  let flagged = List.filter Constrained.is_impossible_constant hypotheses in
   List.iter
     (fun h ->
-       if Constrained.is_impossible_constant h
-       then
-         Printf.eprintf
-           "warning: the hypothesis '%s' has no solutions, so the claim holds only \
-            vacuously.\n"
-           (Constrained.string_of_hypothesis vars h))
-    hypotheses
+       Printf.eprintf
+         "warning: the hypothesis '%s' has no solutions, so the claim holds only \
+          vacuously.\n"
+         (Constrained.string_of_hypothesis vars h))
+    flagged;
+  match flagged with
+  | _ :: _ -> () (* already reported specifically *)
+  | [] ->
+    if Prover.hypotheses_infeasible ~hypotheses
+    then
+      Printf.eprintf
+        "warning: the hypotheses are contradictory (they describe an empty region), so \
+         the claim holds only vacuously.\n"
 ;;
 
 let string_of_failure ~vars = function

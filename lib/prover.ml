@@ -627,6 +627,22 @@ let prove_constrained ~(hypotheses : Constrained.hypothesis list) (target : Poly
   <|> fun () -> prove_by_products ~hypotheses target
 ;;
 
+(** [true] iff the hypotheses are provably contradictory, i.e. cut out an EMPTY
+    region. Detected by finding a Positivstellensatz refutation: a certificate
+    that [-1 >= 0] on the region. If a feasible point existed, the polynomial
+    identity [-1 = base + sum sigma_i g_i + sum lambda_j h_j] could not hold (it
+    would force [-1 >= 0] there), so a certificate the trusted checker accepts
+    exists only when the region is empty. Incomplete (bounded by the search), so
+    a [false] result means "not shown", not "consistent". *)
+let hypotheses_infeasible ~(hypotheses : Constrained.hypothesis list) : bool =
+  match hypotheses with
+  | [] -> false
+  | _ :: _ ->
+    (match prove_constrained ~hypotheses (Polynomial.const (Rational.of_int (-1))) with
+     | Proved_constrained _ -> true
+     | No_constrained_certificate -> false)
+;;
+
 (* ---------------------------------------------------------------------- *)
 (* Built-in "hello world" example:                                         *)
 (*     a^2 + b^2 + c^2 >= a*b + b*c + c*a                                   *)
