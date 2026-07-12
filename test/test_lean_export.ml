@@ -47,12 +47,28 @@ let test_constant () =
   Alcotest.(check bool) "no variable binder" false (contains "(a" out || contains "(x" out)
 ;;
 
+let test_keyword_variable_sanitized () =
+  (* A variable named like a Lean keyword must not appear as a binder; all
+     variables are renamed to x1, x2, ... so the file still compiles. *)
+  let a = Polynomial.var 0 in
+  let p = Polynomial.mul a a in
+  let cert = Certificate.make [ Certificate.term Rational.one a ] in
+  let out = Lean_export.theorem ~name:"t" ~vars:[ "fun" ] p cert in
+  must out "(x1 : \xe2\x84\x9d)";
+  (* (x1 : ℝ) *)
+  Alcotest.(check bool) "no Lean keyword leaks into the proof" false (contains "fun" out)
+;;
+
 let () =
   Alcotest.run
     "lean_export"
     [ ( "emit"
       , [ Alcotest.test_case "hello-world proof" `Quick test_hello_world
         ; Alcotest.test_case "constant, no binder" `Quick test_constant
+        ; Alcotest.test_case
+            "keyword variable sanitized"
+            `Quick
+            test_keyword_variable_sanitized
         ] )
     ]
 ;;
