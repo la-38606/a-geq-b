@@ -122,7 +122,7 @@ wider SDP search. The checker already accepts the full certificate shape.
 | `Constrained` — hypotheses + Positivstellensatz certificate, JSON/LaTeX | ✅ done |
 | `Prover` — SOS search (Gram + rational LDLᵀ, grid) + constrained search (constant/polynomial multipliers, hypothesis products) | 🚧 53/63 SOS corpus |
 | CLI — `--help`, `demo`, `prove`, `check`, `lean` (export a Lean proof) | ✅ done |
-| Tests — `test_{polynomial,parser,checker,prover,lean_export,constrained}` | ✅ 116 cases |
+| Tests — `test_{polynomial,parser,checker,prover,lean_export,constrained}` | ✅ 117 cases |
 
 ### Canonical form (the key invariant)
 

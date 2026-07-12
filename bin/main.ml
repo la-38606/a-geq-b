@@ -335,6 +335,13 @@ let run_lean ~(name : string) (input : string) =
   match Parser.parse input with
   | Error msg ->
     fail Invalid_input (Printf.sprintf "Could not parse the inequality: %s" msg)
+  | Ok claim when claim.Ast.hyps <> [] ->
+    (* The emitted proof is `ring` + `positivity`, which only discharges an
+       unconstrained sum of squares; side conditions are not supported here. *)
+    fail
+      Invalid_input
+      "the `lean` command does not support side conditions ('given ...'); it emits \
+       proofs for unconstrained sum-of-squares certificates only."
   | Ok claim ->
     (match Normalizer.poly_of_claim claim with
      | exception Invalid_argument msg ->
@@ -357,17 +364,33 @@ let run_lean ~(name : string) (input : string) =
             "No supported sum-of-squares certificate was found (not a disproof)."))
 ;;
 
+(* A usage error is invalid input: report it specifically on stderr, point at the
+   help, and exit with the INVALID_INPUT code. *)
+let usage_error (msg : string) =
+  Printf.eprintf "error: %s\nRun `a-geq-b --help` for usage.\n" msg;
+  exit (code_of_status Invalid_input)
+;;
+
 let () =
   match Array.to_list Sys.argv with
-  | [ _; "demo" ] -> run_demo ()
-  | _ :: "prove" :: [ input ] -> run_prove input
-  | _ :: "check" :: [ path ] -> run_check path
-  | _ :: "lean" :: [ input ] -> run_lean ~name:"aeqb" input
-  | _ :: "lean" :: [ input; name ] -> run_lean ~name input
   | [ _ ] | [ _; ("--help" | "-h" | "help") ] -> usage ()
-  | _ :: cmd :: _ ->
-    Printf.eprintf "Unknown or malformed command: %s\n\n" cmd;
-    usage ();
-    exit 1
+  | _ :: "demo" :: rest ->
+    (match rest with
+     | [] -> run_demo ()
+     | _ -> usage_error "`demo` takes no arguments")
+  | _ :: "prove" :: rest ->
+    (match rest with
+     | [ input ] -> run_prove input
+     | _ -> usage_error "`prove` expects one inequality, e.g. prove \"a^2 >= 2*a - 1\"")
+  | _ :: "check" :: rest ->
+    (match rest with
+     | [ path ] -> run_check path
+     | _ -> usage_error "`check` expects one certificate file, e.g. check cert.json")
+  | _ :: "lean" :: rest ->
+    (match rest with
+     | [ input ] -> run_lean ~name:"aeqb" input
+     | [ input; name ] -> run_lean ~name input
+     | _ -> usage_error "`lean` expects an inequality and an optional theorem name")
+  | _ :: cmd :: _ -> usage_error (Printf.sprintf "unknown command `%s`" cmd)
   | [] -> usage () (* unreachable: argv always has the program name *)
 ;;
