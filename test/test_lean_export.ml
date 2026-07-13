@@ -49,14 +49,34 @@ let test_constant () =
 
 let test_keyword_variable_sanitized () =
   (* A variable named like a Lean keyword must not appear as a binder; all
-     variables are renamed to x1, x2, ... so the file still compiles. *)
+     variables are renamed to x1, x2, ... The pattern-based check renames any
+     multi-letter name, so it catches keywords regardless of any list -- e.g.
+     'where', which an earlier hand-maintained keyword list missed. *)
   let a = Polynomial.var 0 in
   let p = Polynomial.mul a a in
   let cert = Certificate.make [ Certificate.term Rational.one a ] in
-  let out = Lean_export.theorem ~name:"t" ~vars:[ "fun" ] p cert in
-  must out "(x1 : \xe2\x84\x9d)";
-  (* (x1 : ℝ) *)
-  Alcotest.(check bool) "no Lean keyword leaks into the proof" false (contains "fun" out)
+  List.iter
+    (fun kw ->
+       let out = Lean_export.theorem ~name:"t" ~vars:[ kw ] p cert in
+       must out "(x1 : \xe2\x84\x9d)";
+       Alcotest.(check bool)
+         (Printf.sprintf "keyword %S does not leak" kw)
+         false
+         (contains kw out))
+    [ "fun"; "where"; "match"; "deriving" ]
+;;
+
+let test_keyword_name_sanitized () =
+  (* A keyword as the theorem name is replaced by the default so the file parses. *)
+  let a = Polynomial.var 0 in
+  let p = Polynomial.mul a a in
+  let cert = Certificate.make [ Certificate.term Rational.one a ] in
+  let out = Lean_export.theorem ~name:"theorem" ~vars:[ "a" ] p cert in
+  must out "theorem aeqb ";
+  Alcotest.(check bool)
+    "keyword theorem name replaced"
+    false
+    (contains "theorem theorem" out)
 ;;
 
 let () =
@@ -69,6 +89,10 @@ let () =
             "keyword variable sanitized"
             `Quick
             test_keyword_variable_sanitized
+        ; Alcotest.test_case
+            "keyword theorem name sanitized"
+            `Quick
+            test_keyword_name_sanitized
         ] )
     ]
 ;;

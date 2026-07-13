@@ -29,8 +29,38 @@ let sos_expr (vars : Pretty.vars) (cert : Certificate.t) : string =
     |> String.concat " + "
 ;;
 
-(* Variable names that would clash with Lean's syntax or with the identifiers
-   this proof itself binds (the theorem [name] and the `have h`). *)
+(* A "safe binder" is a single ASCII letter optionally followed by digits
+   ([a], [b], [x1], [T2], ...). No Lean 4 keyword has this shape -- every keyword
+   is two or more letters -- so a name matching it can never clash with Lean
+   syntax, and there is no keyword list to keep up to date. Variable binders must
+   be safe binders; any input whose names are not are all renamed to [x1, x2, …]. *)
+let is_safe_binder (s : string) : bool =
+  String.length s >= 1
+  && (match s.[0] with
+      | 'a' .. 'z' | 'A' .. 'Z' -> true
+      | _ -> false)
+  && String.for_all
+       (function
+         | '0' .. '9' -> true
+         | _ -> false)
+       (String.sub s 1 (String.length s - 1))
+;;
+
+(* A valid Lean identifier, used only to validate the caller-supplied theorem
+   name (which, unlike a variable, may be a multi-letter word like [my_proof]). *)
+let is_lean_ident (s : string) : bool =
+  String.length s > 0
+  && (match s.[0] with
+      | 'a' .. 'z' | 'A' .. 'Z' | '_' -> true
+      | _ -> false)
+  && String.for_all
+       (function
+         | 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '_' | '\'' -> true
+         | _ -> false)
+       s
+;;
+
+(* Lean 4 keywords the theorem name must not collide with. *)
 let reserved =
   [ "fun"
   ; "let"
@@ -46,36 +76,45 @@ let reserved =
   ; "from"
   ; "have"
   ; "show"
+  ; "suffices"
   ; "calc"
   ; "theorem"
   ; "lemma"
   ; "example"
   ; "def"
+  ; "abbrev"
+  ; "instance"
+  ; "structure"
+  ; "class"
+  ; "inductive"
+  ; "mutual"
   ; "end"
   ; "open"
   ; "namespace"
   ; "section"
   ; "variable"
-  ; "instance"
-  ; "class"
-  ; "structure"
+  ; "universe"
+  ; "import"
+  ; "set_option"
+  ; "attribute"
+  ; "macro"
+  ; "notation"
+  ; "syntax"
+  ; "deriving"
+  ; "extends"
+  ; "where"
+  ; "axiom"
+  ; "opaque"
+  ; "partial"
+  ; "unsafe"
+  ; "noncomputable"
+  ; "private"
+  ; "protected"
+  ; "sorry"
   ; "Type"
   ; "Prop"
   ; "Sort"
-  ; "h"
   ]
-;;
-
-let is_lean_ident (s : string) : bool =
-  String.length s > 0
-  && (match s.[0] with
-      | 'a' .. 'z' | 'A' .. 'Z' | '_' -> true
-      | _ -> false)
-  && String.for_all
-       (function
-         | 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '_' | '\'' -> true
-         | _ -> false)
-       s
 ;;
 
 (** [theorem ~name ~vars p cert] is a complete Lean 4 source file proving
@@ -92,11 +131,17 @@ let theorem
   : string
   =
   let n = Polynomial.num_vars p in
-  let safe nm =
-    is_lean_ident nm && (not (List.mem nm reserved)) && not (String.equal nm name)
+  (* A caller-supplied name that is not a plain identifier, or is a keyword, is
+     replaced by the default so the `theorem <name>` line always parses. *)
+  let name =
+    if is_lean_ident name && not (List.mem name reserved) then name else "aeqb"
   in
-  (* Use the given names only if every one is a valid, non-clashing identifier;
-     otherwise fall back to guaranteed-safe positional names. *)
+  (* Keep the variable names only if every one is a provably keyword-free binder
+     and clashes with neither the `have h` nor the theorem name; otherwise fall
+     back to guaranteed-safe positional names x1, x2, ... *)
+  let safe nm =
+    is_safe_binder nm && (not (String.equal nm "h")) && not (String.equal nm name)
+  in
   let vars =
     if List.for_all safe (List.init n (Pretty.name_of vars))
     then vars
