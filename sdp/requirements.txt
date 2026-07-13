@@ -1,0 +1,5 @@
+# Numerical SDP solver dependencies (untrusted side of the prover).
+# cvxpy ships the CLARABEL interior-point conic solver used here.
+cvxpy>=1.6
+numpy>=1.26
+scipy>=1.11

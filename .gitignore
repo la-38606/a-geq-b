@@ -9,8 +9,11 @@ _opam/
 # Copyrighted reference book (personal-use PDF; do not redistribute via the repo)
 inequalities-a-mathematical-olympiad-approach.pdf
 
-# Python cache from the corpus scripts
+# Python cache from the corpus / sdp scripts
 __pycache__/
+
+# Python virtual environment for the numerical SDP solver (see sdp/README.md)
+.venv/
 
 # LaTeX build artifacts (the committed PDF is the output; .tex is the source)
 doc/*.aux
