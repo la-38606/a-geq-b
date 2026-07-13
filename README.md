@@ -203,13 +203,10 @@ See [corpus/README.md](corpus/README.md).
 
 ## Deliberately not implemented yet
 
-Per the implementation brief, these are **stretch goals, not foundations**, and
-are intentionally left for later prompts:
+These are **stretch goals, not foundations**, and are intentionally left for
+later:
 
 - the **rest of the automatic prover** — the remaining ~13 in-scope corpus
   targets need a monomial basis whose Gram matrix is not uniquely determined
   (an SDP feasibility problem); that stage is not built yet;
-- **SDP** integration, **Coq/Lean** extraction, and a **web frontend**.
-
-See [`CLAUDE.md`](CLAUDE.md) for the working rules and the next implementation
-step.
+- **SDP** integration.

@@ -11,9 +11,8 @@
     bases, and the full degree-[d] basis for homogeneous targets — and resolves
     an under-determined Gram (an SDP) by a bounded rational grid search over up
     to two free entries.  Targets needing a wider multi-variable semidefinite
-    search are still future work; see CLAUDE.md, "Automatic prover stages".  This
-    module also provides the hand-written "hello world" example used by the
-    [demo] command. *)
+    search are still future work.  This module also provides the hand-written
+    "hello world" example used by the [demo] command. *)
 
 type result =
   | Proved of Certificate.t
