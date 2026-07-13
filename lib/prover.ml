@@ -72,11 +72,19 @@ let support (m : Monomial.t) : (int * int) list =
 (* Rational grid { n/2 : -12 <= n <= 12 } for free Gram entries. *)
 let grid : Rational.t list = List.init 25 (fun n -> Rational.of_ints (n - 12) 2)
 
+(* Largest monomial basis the Gram search will touch. Beyond this the pair
+   enumeration below is quadratic and the basis build itself is astronomical
+   (a sparse high-degree many-variable target like a^20+..+j^20 has a
+   half-degree basis of ~92000 monomials), so we give up rather than hang. Real
+   SOS targets need a handful of basis monomials -- the corpus never exceeds a
+   few dozen -- so this only refuses pathological input. *)
+let max_basis = 1000
+
 let gram_candidates (p : Polynomial.t) (basis : Monomial.t array)
   : Rational.t array array list
   =
   let r = Array.length basis in
-  if r = 0
+  if r = 0 || r > max_basis
   then []
   else (
     (* product monomial -> list of (i, j) pairs (i <= j) that build it *)
@@ -276,19 +284,31 @@ let max_exponents (p : Polynomial.t) (n : int) : int array =
 ;;
 
 (* All monomials of total degree exactly [d] over [n] variables, with each
-   exponent capped by [cap.(i)]. *)
+   exponent capped by [cap.(i)]. Generation stops once more than [max_basis]
+   monomials would be produced (a high-degree many-variable basis is far too
+   large for the Gram search regardless): the empty list, meaning "give up on
+   this basis", is returned rather than building an astronomically long list. *)
 let monomials_of_degree (n : int) (d : int) (cap : int array) : Monomial.t list =
+  let exception Too_many in
   let acc = ref [] in
+  let count = ref 0 in
   let rec go i rem cur =
     if i = n
-    then (if rem = 0 then acc := Monomial.canonical (List.rev cur) :: !acc)
+    then
+      if rem = 0
+      then (
+        incr count;
+        if !count > max_basis then raise_notrace Too_many;
+        acc := Monomial.canonical (List.rev cur) :: !acc)
+      else ()
     else
       for e = 0 to min rem cap.(i) do
         go (i + 1) (rem - e) (e :: cur)
       done
   in
-  go 0 d [];
-  !acc
+  (try go 0 d [] with
+   | Too_many -> ());
+  if !count > max_basis then [] else !acc
 ;;
 
 (* For a homogeneous target of even degree 2d, the full degree-d monomial basis.

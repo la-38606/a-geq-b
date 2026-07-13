@@ -159,6 +159,24 @@ let test_infeasible () =
   Alcotest.(check bool) "no hypotheses" false (infeasible "a^2 >= 0")
 ;;
 
+(* A sparse high-degree many-variable target: its homogeneous half-degree basis
+   is ~92000 monomials, which the Gram search must refuse (the basis cap) instead
+   of enumerating. This asserts termination: prove returns quickly rather than
+   hanging. (This particular family is in fact proved by the diagonal
+   square-root path before the huge basis is reached; either way the result is
+   sound, since any returned certificate is re-checked below.) *)
+let test_large_basis_terminates () =
+  let p = target "a^20 + b^20 + c^20 + d^20 + e^20 + f^20 >= 0" in
+  match Prover.prove p with
+  | Prover.No_certificate_found -> ()
+  | Prover.Proved cert ->
+    (* If it ever does return a certificate, it must still check out. *)
+    Alcotest.(check bool)
+      "any returned certificate still checks"
+      true
+      (Checker.check_sos p cert)
+;;
+
 let () =
   Alcotest.run
     "prover"
@@ -180,6 +198,12 @@ let () =
             "contradictory vs consistent hypotheses"
             `Quick
             test_infeasible
+        ] )
+    ; ( "termination"
+      , [ Alcotest.test_case
+            "large-basis target terminates"
+            `Quick
+            test_large_basis_terminates
         ] )
     ]
 ;;

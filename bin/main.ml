@@ -196,7 +196,14 @@ let warn_vacuous ~vars hypotheses =
   match flagged with
   | _ :: _ -> () (* already reported specifically *)
   | [] ->
-    if Prover.hypotheses_infeasible ~hypotheses
+    (* This calls the untrusted search only to decide whether to print a
+       warning; it never affects the verdict. Swallow any failure in it so a bug
+       in the search cannot crash a run whose result is already decided. *)
+    let contradictory =
+      try Prover.hypotheses_infeasible ~hypotheses with
+      | _ -> false
+    in
+    if contradictory
     then
       Printf.eprintf
         "warning: the hypotheses are contradictory (they describe an empty region), so \
