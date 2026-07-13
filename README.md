@@ -120,9 +120,10 @@ wider SDP search. The checker already accepts the full certificate shape.
 | `Certificate` — SOS term data, rendering, JSON read + write | ✅ done |
 | `Checker` — `check_sos` and `check_constrained` (Positivstellensatz), exact | ✅ done (trusted core) |
 | `Constrained` — hypotheses + Positivstellensatz certificate, JSON/LaTeX | ✅ done |
-| `Prover` — SOS search (Gram + rational LDLᵀ, grid) + constrained search (constant/polynomial multipliers, hypothesis products) | 🚧 53/63 SOS corpus |
-| CLI — `--help`, `demo`, `prove`, `check`, `lean` (export a Lean proof) | ✅ done |
-| Tests — `test_{polynomial,parser,checker,prover,lean_export,constrained}` | ✅ 117 cases |
+| `Prover` — SOS search (Gram + rational LDLᵀ, grid) + constrained search (constant/polynomial multipliers, hypothesis products) | ✅ done |
+| `Sdp` + `sdp/` — numerical semidefinite prover (OCaml emits, cvxpy solves, OCaml rounds + re-checks) | ✅ 63/63 SOS corpus |
+| CLI — `--help`, `demo`, `prove`, `check`, `lean`, `sdp-emit`/`sdp-check` | ✅ done |
+| Tests — `test_{polynomial,parser,checker,prover,lean_export,constrained,sdp}` | ✅ 129 cases |
 
 ### Canonical form (the key invariant)
 
@@ -181,12 +182,33 @@ dune exec a-geq-b -- --help
 `prove` parses the inequality (division allowed — denominators are cleared),
 reduces it to `p ≥ 0`, and runs the automatic prover (Gram matrix + exact
 rational LDLᵀ over a monomial basis, with a bounded rational grid search for
-under-determined cases). E.g. `a^2+b^2 >= 2*a*b` now prints `PROVED` with the
+under-determined cases). E.g. `a^2+b^2 >= 2*a*b` prints `PROVED` with the
 certificate `(a-b)^2`, found automatically, and rational inputs like
-`(a-b)^2/2 >= 0` work too. Targets that need a wider (multi-variable)
-semidefinite search still report `NO_CERT_FOUND` — which is *not* a disproof.
-`check` loads a certificate and runs the trusted checker. Statuses: `PROVED`
-(0), `NO_CERT_FOUND` (2), `INVALID_INPUT` (3), `CHECK_FAILED` (4).
+`(a-b)^2/2 >= 0` work too. Targets whose Gram matrix has more freedom than the
+grid search explores are closed by the **numerical SDP prover** (see below). A
+genuinely non-SOS or out-of-scope target reports `NO_CERT_FOUND`, which is *not*
+a disproof. `check` loads a certificate and runs the trusted checker. Statuses:
+`PROVED` (0), `NO_CERT_FOUND` (2), `INVALID_INPUT` (3), `CHECK_FAILED` (4).
+
+## Numerical SDP prover
+
+Some sum-of-squares certificates need a Gram matrix with more freedom than the
+exact search resolves by hand — a genuine semidefinite program. The
+[`sdp/`](sdp/) pipeline solves it without weakening the trust model:
+
+```
+python3 -m venv .venv && .venv/bin/python -m pip install -r sdp/requirements.txt
+.venv/bin/python sdp/prove.py "a^4 + b^4 + c^4 + d^4 >= 4*a*b*c*d"   # -> PROVED
+```
+
+OCaml emits the Gram program (`sdp-emit`), **cvxpy** finds an approximate
+positive-semidefinite matrix, and OCaml rounds it back to exact rationals and
+re-verifies with the trusted checker (`sdp-check`). The numerical code is
+untrusted: a wrong solution rounds to a non-PSD matrix or a rejected certificate,
+never a false proof. With this path all **63/63** in-scope SOS corpus targets are
+proved (`.venv/bin/python corpus/run_sdp.py`), while the not-SOS traps stay
+unproved. This is the third language in the design — OCaml for exact/trusted,
+Python for untrusted numerics, Lean for the machine-checked kernel.
 
 ## Test corpus
 
@@ -201,12 +223,13 @@ are machine-verified by the checker (`python3 corpus/verify.py`); all 119 are
 numerically sanity-checked on their domains (`python3 corpus/sanity_sample.py`).
 See [corpus/README.md](corpus/README.md).
 
-## Deliberately not implemented yet
+## Remaining refinements
 
-These are **stretch goals, not foundations**, and are intentionally left for
-later:
+These sharpen an already-working prover; none is a foundation:
 
-- the **rest of the automatic prover** — the remaining ~13 in-scope corpus
-  targets need a monomial basis whose Gram matrix is not uniquely determined
-  (an SDP feasibility problem); that stage is not built yet;
-- **SDP** integration.
+- **Constrained (Positivstellensatz) hardest cases** — products of three or more
+  hypotheses, and non-constant SOS multipliers on the nonnegative hypotheses.
+  Both are Gram problems that want the same numerical SDP step the unconstrained
+  prover now uses.
+- **Newton-polytope basis reduction** — the SDP path uses the full degree-`d`
+  monomial basis; the Newton polytope would give a smaller, complete basis.

@@ -481,12 +481,13 @@ $(a^2 - b^2)^2$.
 \paragraph{Under-determined Gram (an SDP).} When a monomial is the product of
 several pairs---e.g.\ $a^2 b^2 = (a^2)(b^2) = (ab)(ab)$---the constraints
 \eqref{eq:match} leave free parameters, and one must \emph{choose} a PSD member
-of the affine family. This is a genuine semidefinite program. The current
-implementation performs a bounded rational grid search over up to two free
-entries; every candidate satisfies $\z\transpose Q\,\z = p$ by construction, so
-any PSD candidate yields a valid certificate, and the trusted checker verifies
-it. The planned replacement solves the SDP numerically and rounds the result to
-an exact rational PSD matrix (Section~\ref{sec:roadmap}). Targets with no SOS
+of the affine family. This is a genuine semidefinite program, and the prover
+meets it two ways. Over up to two free entries it runs a bounded rational grid
+search; beyond that it emits the program for an external numerical solver and
+rounds the returned matrix to an exact rational PSD one
+(Section~\ref{sec:roadmap}). Either way every candidate satisfies
+$\z\transpose Q\,\z = p$ by construction, so any PSD candidate yields a valid
+certificate, and the trusted checker verifies it. Targets with no SOS
 representation at all (Example~\ref{ex:motzkin}) correctly yield
 \textsc{No\_Cert\_Found}.
 
@@ -790,36 +791,49 @@ can only ever produce a Lean file that fails to compile, never a false theorem.
 \label{sec:roadmap}
 % ===========================================================================
 
-Much of the design is in place: the trusted checker and its Lean-verified twin
-(Section~\ref{sec:lean}), the exact SOS prover, denominator clearing, and the
-constrained search of Section~\ref{sec:constrained}. What is left sharpens the
-prover, and---as always---keeps the checker the sole authority.
+The design is in place: the trusted checker and its Lean-verified twin
+(Section~\ref{sec:lean}), the exact SOS prover, denominator clearing, the
+constrained search of Section~\ref{sec:constrained}, and the numerical
+semidefinite prover described below, which closes the last in-scope corpus
+targets. What remains only sharpens an already-working prover, and, as always,
+keeps the checker the sole authority.
 
 \smallskip
-\noindent\textbf{A wide semidefinite prover.} The single remaining lever. Build
-the monomial basis by the Newton-polytope reduction \eqref{eq:newton-basis} and
-replace the bounded grid search with a genuine SDP over the affine family
-\eqref{eq:match}: the exact core emits the Gram program, a numerical solver (an
-interior-point method) returns an approximate PSD $Q$, and the core recovers an
-exact certificate by \emph{Peyrl--Parrilo rounding}---projecting the numerical
-Gram onto the affine subspace \eqref{eq:match}, which stays rational and remains
-PSD when the numerical solution is strictly interior---before re-verifying. The
-numerical code is thereby quarantined cleanly behind the trust boundary. The
-constrained search of Section~\ref{sec:constrained} wants the very same machinery
-for its hardest cases: a non-constant square multiplier $\sigma_i$ on an
-inequality is itself a Gram problem, and so is a product of three or more
-hypotheses.
+\noindent\textbf{The numerical semidefinite prover.} For a target whose Gram
+matrix has more freedom than the bounded grid search can explore, the exact core
+emits the Gram program \eqref{eq:match} as JSON and an external numerical solver
+(cvxpy's CLARABEL interior-point method) returns an approximate positive
+semidefinite $Q$. The core then rounds $Q$ back to exact rationals: it fixes the
+free entries at a small common denominator and completes the dependent entries so
+that $\z\transpose Q\, \z = p$ holds identically, so the recovered matrix is an
+exact rational Gram matrix of $p$ whenever the rounding lands inside the PSD cone.
+An exact $LDL^{\top}$ then reads off the certificate, which the trusted checker
+verifies as usual. The numerical code is quarantined cleanly behind the trust
+boundary: a wrong solution rounds to a matrix that is not PSD, or to a rejected
+certificate, never a false proof. With this path the prover closes all $63$
+in-scope sum-of-squares targets of the corpus, while the not-SOS traps (Motzkin,
+Choi--Lam) and the false claims stay unproved.
+
+\smallskip
+\noindent What remains is optional refinement. The constrained search of
+Section~\ref{sec:constrained} wants the same machinery for its hardest cases: a
+non-constant square multiplier $\sigma_i$ on an inequality is itself a Gram
+problem, as is a product of three or more hypotheses. Building the basis by the
+Newton-polytope reduction \eqref{eq:newton-basis} rather than the full
+degree-$d$ set would shrink the programs further. Both improve a prover that
+already works rather than fill a gap.
 
 \smallskip
 \noindent The interface is deliberately the command line: \texttt{prove},
-\texttt{check}, and \texttt{lean} print a structured, aligned report.
+\texttt{check}, \texttt{lean}, and the \texttt{sdp} pipeline print a structured,
+aligned report.
 
-With the verified checker already in hand, finishing the wide prover would
-realise a principled three-language architecture: exact symbolic computation and
-the trusted core in a typed functional language (OCaml), numerical semidefinite
-programming---untrusted---in the scientific-computing ecosystem (Python), and a
-machine-checked proof of the kernel in a proof assistant (Lean~4). Each language
-does what it is best at, and only the smallest of them has to be believed.
+The system now realises a principled three-language architecture: exact symbolic
+computation and the trusted core in a typed functional language (OCaml),
+numerical semidefinite programming (untrusted) in the scientific-computing
+ecosystem (Python), and a machine-checked proof of the kernel in a proof
+assistant (Lean~4). Each language does what it is best at, and only the smallest
+of them has to be believed.
 
 % ===========================================================================
 \section*{References (selected)}
