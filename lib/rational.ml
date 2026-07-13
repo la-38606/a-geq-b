@@ -49,6 +49,11 @@ let is_zero (q : t) : bool = sign q = 0
 let is_nonneg (q : t) : bool = sign q >= 0
 let is_positive (q : t) : bool = sign q > 0
 
+(** A rough magnitude, in bits: the bit-length of the numerator plus that of the
+    denominator. Used to bound coefficient growth so exact arithmetic cannot blow
+    up on pathological input; [0] for the integer values [0] and [±1]. *)
+let size_bits (q : t) : int = Z.numbits (Q.num q) + Z.numbits (Q.den q)
+
 (** Human-readable form: "3", "-4", "1/2". *)
 let to_string : t -> string = Q.to_string
 

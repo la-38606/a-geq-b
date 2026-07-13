@@ -62,29 +62,47 @@ let vars_of_claim (c : Ast.claim) : context =
    Fractions are combined but not reduced to lowest terms — denominators grow,
    but the result is exact and that is all the checker needs. *)
 
-(* Cap the total degree of intermediate polynomials. The parser bounds a single
-   exponent, but nested or repeated powers compose multiplicatively --
-   [((a+b)^80)^80] is degree 6400 -- and would make [Polynomial.pow]/[mul] hang.
-   Each degree-increasing multiplication is guarded BEFORE it is computed, so the
-   oversized polynomial is never built. No real inequality here is high degree
-   (the corpus tops out at 8), so this only rejects pathological input. *)
+(* Cap intermediate polynomial size on three axes so exact arithmetic cannot be
+   made to hang on pathological input:
+     - total DEGREE (nested powers compose: [((a+b)^80)^80] is degree 6400);
+     - monomial COUNT (a low-degree polynomial in many variables can still have
+       astronomically many terms: [(a+..+h)^100] is degree 100 but ~2.6e10 terms);
+     - coefficient MAGNITUDE (nested powers of a constant, [((2)^100)^100], blow
+       up the integers without changing degree or term count).
+   Every degree-increasing multiplication is guarded BEFORE it runs, and powers go
+   through that same guard term by term, so the oversized object is never built.
+   No real inequality here comes close (the corpus tops out at degree 8), so only
+   pathological input is refused. *)
 let max_degree = 100
+let max_terms = 20_000
+let max_coeff_bits = 10_000
+let too_big () = invalid_arg "Normalizer: intermediate result is too large to build"
+let terms (p : Polynomial.t) : int = List.length (Polynomial.to_list p)
 
-let too_big () =
-  invalid_arg
-    (Printf.sprintf
-       "Normalizer: intermediate degree exceeds the maximum of %d"
-       max_degree)
+let coeff_bits (p : Polynomial.t) : int =
+  List.fold_left (fun m (_, c) -> max m (Rational.size_bits c)) 0 (Polynomial.to_list p)
 ;;
 
 let mul_capped (a : Polynomial.t) (b : Polynomial.t) : Polynomial.t =
-  if Polynomial.degree a + Polynomial.degree b > max_degree
+  if
+    Polynomial.degree a + Polynomial.degree b > max_degree
+    || terms a * terms b > max_terms
+    || coeff_bits a + coeff_bits b > max_coeff_bits
   then too_big ()
   else Polynomial.mul a b
 ;;
 
+(* p^k via repeated capped multiplication, so the degree/count/magnitude guards
+   apply at every step; a cheap up-front degree check short-circuits the obvious
+   blow-up before any multiplication. *)
 let pow_capped (p : Polynomial.t) (k : int) : Polynomial.t =
-  if Polynomial.degree p * k > max_degree then too_big () else Polynomial.pow p k
+  if k = 0
+  then Polynomial.one
+  else if Polynomial.degree p * k > max_degree
+  then too_big ()
+  else (
+    let rec go acc i = if i = 0 then acc else go (mul_capped acc p) (i - 1) in
+    go p (k - 1))
 ;;
 
 let rf_add (na, da) (nb, db) =

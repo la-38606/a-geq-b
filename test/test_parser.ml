@@ -215,16 +215,20 @@ let test_division_by_zero_rejected () =
      | exception Invalid_argument _ -> ())
 ;;
 
-let test_degree_cap () =
-  (* Nested powers compose to a huge degree; the normalizer must reject (not
-     hang) rather than build the polynomial. *)
-  match Parser.parse "((a + b)^80)^80 >= 0" with
+(* Each pathological expression must be REJECTED (not built/hung). *)
+let size_capped src () =
+  match Parser.parse src with
   | Error m -> Alcotest.failf "should parse: %s" m
   | Ok c ->
-    (match Normalizer.poly_of_claim ~context:ctx c with
-     | _ -> Alcotest.fail "expected a degree-cap rejection"
+    (match Normalizer.poly_of_claim c with
+     | _ -> Alcotest.failf "expected a size-cap rejection for %S" src
      | exception Invalid_argument _ -> ())
 ;;
+
+(* high degree; low degree but astronomically many terms; huge coefficient. *)
+let test_degree_cap () = size_capped "((a + b)^80)^80 >= 0" ()
+let test_term_count_cap () = size_capped "(a + b + c + d + e + f + g + h)^100 >= 0" ()
+let test_coeff_size_cap () = size_capped "((((2)^100)^100)^100) >= 1" ()
 
 (* --- JSON certificate loading ------------------------------------------- *)
 
@@ -351,6 +355,14 @@ let () =
             `Quick
             test_division_by_zero_rejected
         ; Alcotest.test_case "degree cap rejects nested powers" `Quick test_degree_cap
+        ; Alcotest.test_case
+            "term-count cap rejects wide powers"
+            `Quick
+            test_term_count_cap
+        ; Alcotest.test_case
+            "coeff-size cap rejects nested constant powers"
+            `Quick
+            test_coeff_size_cap
         ] )
     ; ( "json"
       , [ Alcotest.test_case "valid certificate loads and checks" `Quick test_json_valid

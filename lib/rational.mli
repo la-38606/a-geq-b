@@ -35,6 +35,10 @@ val is_zero : t -> bool
 val is_nonneg : t -> bool
 val is_positive : t -> bool
 
+(** A rough magnitude in bits (numerator bit-length plus denominator bit-length),
+    used to bound coefficient growth; [0] for [0] and [±1]. *)
+val size_bits : t -> int
+
 (** Human-readable form: ["3"], ["-4"], ["1/2"]. *)
 val to_string : t -> string
 
