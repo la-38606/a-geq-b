@@ -14,6 +14,26 @@ type result =
     by the trusted {!Checker}. *)
 val prove : Polynomial.t -> result
 
+(** {2 Semidefinite (SDP) path helpers}
+
+    Building blocks for the external numerical SDP prover (see the [sdp/]
+    directory): OCaml emits a Gram semidefinite program, Python solves it
+    numerically, and OCaml rounds the result back to exact rationals with these.
+    Untrusted, like the rest of the prover: any certificate produced through them
+    is re-checked by the trusted {!Checker} before the system claims [PROVED]. *)
+
+(** The monomial basis the SDP path uses for [p] -- wider than the bases
+    {!prove} tries, so the numerical solver has the Gram freedom the bounded grid
+    search cannot explore. Both sides of the pipeline must agree on it. *)
+val sdp_basis : Polynomial.t -> Monomial.t array
+
+(** SOS certificate read off a rational Gram matrix over the given basis by exact
+    LDLᵀ, or [None] if the matrix is not positive semidefinite. *)
+val certificate_of_gram
+  :  Monomial.t array
+  -> Rational.t array array
+  -> Certificate.t option
+
 type constrained_result =
   | Proved_constrained of Constrained.t
   | No_constrained_certificate

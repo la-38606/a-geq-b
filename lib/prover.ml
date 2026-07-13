@@ -223,6 +223,18 @@ let certificate_of_ldlt
   Certificate.make !terms
 ;;
 
+(* SOS certificate read off a full rational Gram matrix over [basis] by exact
+   LDL^T, or None if the matrix is not PSD. The SDP path (untrusted) uses this to
+   turn a rounded numerical Gram into a candidate certificate; the trusted
+   checker re-verifies it regardless. *)
+let certificate_of_gram (basis : Monomial.t array) (q : Rational.t array array)
+  : Certificate.t option
+  =
+  match ldlt q with
+  | l, d -> Some (certificate_of_ldlt basis l d)
+  | exception Not_psd -> None
+;;
+
 (* Try to prove p >= 0 using SOS over a specific monomial basis: return the
    certificate from the first candidate Gram matrix that is PSD. *)
 let prove_with_basis (p : Polynomial.t) (basis : Monomial.t array) : Certificate.t option =
@@ -320,6 +332,25 @@ let homogeneous_basis (p : Polynomial.t) : Monomial.t array =
   else (
     let n = Polynomial.num_vars p in
     Array.of_list (monomials_of_degree n (deg / 2) (max_exponents p n)))
+;;
+
+(* All monomials of total degree <= [d] over [n] variables (capped as above). *)
+let monomials_upto (n : int) (d : int) (cap : int array) : Monomial.t list =
+  List.concat_map (fun e -> monomials_of_degree n e cap) (List.init (d + 1) Fun.id)
+;;
+
+(* Basis for the semidefinite (SDP) path: the full degree-d monomial basis for a
+   homogeneous target of degree 2d, otherwise every monomial up to half the
+   degree. This is wider than the bases {!prove} tries, giving the external SDP
+   solver the Gram freedom the bounded grid search cannot explore. *)
+let sdp_basis (p : Polynomial.t) : Monomial.t array =
+  let h = homogeneous_basis p in
+  if Array.length h > 0
+  then h
+  else (
+    let n = Polynomial.num_vars p in
+    let d = (Polynomial.degree p + 1) / 2 in
+    Array.of_list (monomials_upto n d (max_exponents p n)))
 ;;
 
 (** Attempt to find an SOS certificate for [p >= 0]. Tries a sequence of

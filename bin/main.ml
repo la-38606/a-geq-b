@@ -46,6 +46,12 @@ let usage () =
        ; "  Attach hypotheses with `given`, e.g."
        ; "    a-geq-b prove \"a*b >= 0 given a >= 0, b >= 0\""
        ; ""
+       ; heading "Numerical SDP prover (see sdp/)"
+       ; "  For targets beyond the exact search, an external solver closes the gap:"
+       ; "    python sdp/prove.py \"a^4 + b^4 + c^4 + d^4 >= 4*a*b*c*d\""
+       ; "  It drives two lower-level commands, sdp-emit and sdp-check, and every"
+       ; "  result is still confirmed by the trusted checker."
+       ; ""
        ; heading "Exit status"
        ; "  0 PROVED    2 NO_CERT_FOUND    3 INVALID_INPUT    4 CHECK_FAILED"
        ; ""
@@ -380,6 +386,98 @@ let run_lean ~(name : string) (input : string) =
             "No supported sum-of-squares certificate was found (not a disproof)."))
 ;;
 
+(* Emit the Gram SDP for a target as JSON on stdout (and nothing else on stdout,
+   so the numerical solver can capture it). Diagnostics go to stderr; the exit
+   code follows the shared status -> code mapping. Constrained claims are not
+   supported (the SDP path is for unconstrained sums of squares). *)
+let run_sdp_emit (input : string) =
+  let fail status msg =
+    Printf.eprintf "error: %s\n" msg;
+    exit (code_of_status status)
+  in
+  match Parser.parse input with
+  | Error msg -> fail Invalid_input ("could not parse the inequality: " ^ msg)
+  | Ok claim when claim.Ast.hyps <> [] ->
+    fail
+      Invalid_input
+      "the `sdp-emit` command does not support side conditions ('given ...')"
+  | Ok claim ->
+    (match Normalizer.poly_of_claim claim with
+     | exception Invalid_argument msg ->
+       fail Invalid_input ("could not reduce the inequality: " ^ msg)
+     | _vars, target ->
+       print_string (Yojson.Safe.to_string (Sdp.problem_json target));
+       print_newline ())
+;;
+
+(* Round a numerical Gram solution (from the external solver, in [file]) back to
+   an exact certificate and report the trusted result. The claim must be the same
+   one passed to `sdp-emit`, so the basis matches. *)
+let run_sdp_check (input : string) (file : string) =
+  match Parser.parse input with
+  | Error msg ->
+    Printf.eprintf "error: could not parse the inequality: %s\n" msg;
+    finish Invalid_input
+  | Ok claim when claim.Ast.hyps <> [] ->
+    Printf.eprintf "error: the `sdp-check` command does not support side conditions.\n";
+    finish Invalid_input
+  | Ok claim ->
+    (match Normalizer.poly_of_claim claim with
+     | exception Invalid_argument msg ->
+       Printf.eprintf "error: could not reduce the inequality: %s\n" msg;
+       finish Invalid_input
+     | vars, target ->
+       let solution =
+         try Ok (Yojson.Safe.from_file file) with
+         | _ -> Error "could not read the solution file as JSON"
+       in
+       (match solution with
+        | Error msg ->
+          Printf.eprintf "error: %s\n" msg;
+          finish Invalid_input
+        | Ok json ->
+          let matrix =
+            match Yojson.Safe.Util.member "Q" json with
+            | `List rows ->
+              (try
+                 Some
+                   (Array.of_list
+                      (List.map
+                         (fun row ->
+                            Array.of_list
+                              (List.map
+                                 (function
+                                   | `Float f -> f
+                                   | `Int i -> float_of_int i
+                                   | _ -> raise Exit)
+                                 (Yojson.Safe.Util.to_list row)))
+                         rows))
+               with
+               | _ -> None)
+            | _ -> None
+          in
+          (match matrix with
+           | None ->
+             Printf.eprintf "error: solution file has no numeric \"Q\" matrix.\n";
+             finish Invalid_input
+           | Some q ->
+             (match Sdp.certificate_of_solution target q with
+              | Some cert when Checker.check_sos target cert ->
+                print_proved ~claim:input ~vars ~target ~cert;
+                finish Proved
+              | _ ->
+                preamble ~claim:input ~vars ~target;
+                note
+                  (String.concat
+                     "\n"
+                     [ "The numerical solution did not round to an exact certificate the"
+                     ; "trusted checker accepts. This is not a disproof: the solver may \
+                        have"
+                     ; "found no feasible matrix, or the rounding missed the exact one."
+                     ]);
+                finish No_cert_found))))
+;;
+
 (* A usage error is invalid input: report it specifically on stderr, point at the
    help, and exit with the INVALID_INPUT code. *)
 let usage_error (msg : string) =
@@ -407,6 +505,14 @@ let () =
      | [ input ] -> run_lean ~name:"aeqb" input
      | [ input; name ] -> run_lean ~name input
      | _ -> usage_error "`lean` expects an inequality and an optional theorem name")
+  | _ :: "sdp-emit" :: rest ->
+    (match rest with
+     | [ input ] -> run_sdp_emit input
+     | _ -> usage_error "`sdp-emit` expects one inequality")
+  | _ :: "sdp-check" :: rest ->
+    (match rest with
+     | [ input; file ] -> run_sdp_check input file
+     | _ -> usage_error "`sdp-check` expects an inequality and a solution file")
   | _ :: cmd :: _ -> usage_error (Printf.sprintf "unknown command `%s`" cmd)
   | [] -> usage () (* unreachable: argv always has the program name *)
 ;;
