@@ -34,8 +34,20 @@ val certificate_of_gram
   -> Rational.t array array
   -> Certificate.t option
 
+(** Which constrained strategy found the certificate, reported so interfaces can
+    describe the route taken. Carries no soundness weight: the trusted {!Checker}
+    re-verifies the certificate regardless of its origin. *)
+type constrained_strategy =
+  | Constant_multipliers
+  (** constant multiples of hypotheses subtracted; an SOS base proves the
+      residual *)
+  | Equality_reduction
+  (** polynomial multipliers on equalities, found by reduction modulo them *)
+  | Hypothesis_products
+  (** a constant times a product of two nonnegative hypotheses (Schmüdgen) *)
+
 type constrained_result =
-  | Proved_constrained of Constrained.t
+  | Proved_constrained of constrained_strategy * Constrained.t
   | No_constrained_certificate
 
 (** Attempt a Positivstellensatz certificate that [target >= 0] on the region cut

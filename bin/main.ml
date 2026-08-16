@@ -60,38 +60,26 @@ let usage () =
 
 (* --- exit status -------------------------------------------------------- *)
 
-(* The four outcomes the CLI can report. Keeping the status -> (line, exit code)
+(* The four outcomes are Proof_result.status; keeping the status -> exit code
    mapping in a single total function makes it impossible to pair, say, PROVED
    with the wrong exit code. *)
-type status =
-  | Proved
-  | No_cert_found
-  | Invalid_input
-  | Check_failed
-
-let code_of_status = function
+let code_of_status : Proof_result.status -> int = function
   | Proved -> 0
   | No_cert_found -> 2
   | Invalid_input -> 3
   | Check_failed -> 4
 ;;
 
-let finish (status : status) =
-  let name =
-    match status with
-    | Proved -> "PROVED"
-    | No_cert_found -> "NO_CERT_FOUND"
-    | Invalid_input -> "INVALID_INPUT"
-    | Check_failed -> "CHECK_FAILED"
-  in
+let finish (status : Proof_result.status) =
+  let name = Proof_result.string_of_status status in
   (* The label and format stay exactly "Status: <NAME>" so tools that read the
      result back keep working; only the name is coloured, and only on a terminal
      (never under capture, so the parsed text is unchanged). *)
   let shown =
     match status with
-    | Proved -> Style.ok name
-    | Invalid_input | Check_failed -> Style.bad name
-    | No_cert_found -> name
+    | Proof_result.Proved -> Style.ok name
+    | Proof_result.Invalid_input | Proof_result.Check_failed -> Style.bad name
+    | Proof_result.No_cert_found -> name
   in
   Printf.printf "Status: %s\n" shown;
   exit (code_of_status status)
@@ -187,50 +175,15 @@ let print_proved_constrained ~claim ~vars ~hypotheses ~target ~cert =
 ;;
 
 (* Warn (to stderr) when the hypotheses cut out an empty region, since a claim
-   "proved" under them holds only vacuously. First the cheap per-hypothesis check
-   (an impossible constant constraint, named specifically); failing that, a
-   general Positivstellensatz refutation that the whole system is contradictory. *)
+   "proved" under them holds only vacuously. The detection (and its caution
+   about the untrusted search) lives in {!Proof_result.vacuity_warnings}. *)
 let warn_vacuous ~vars hypotheses =
-  let flagged = List.filter Constrained.is_impossible_constant hypotheses in
   List.iter
-    (fun h ->
-       Printf.eprintf
-         "warning: the hypothesis '%s' has no solutions, so the claim holds only \
-          vacuously.\n"
-         (Constrained.string_of_hypothesis vars h))
-    flagged;
-  match flagged with
-  | _ :: _ -> () (* already reported specifically *)
-  | [] ->
-    (* This calls the untrusted search only to decide whether to print a
-       warning; it never affects the verdict. Swallow any failure in it so a bug
-       in the search cannot crash a run whose result is already decided. *)
-    let contradictory =
-      try Prover.hypotheses_infeasible ~hypotheses with
-      | _ -> false
-    in
-    if contradictory
-    then
-      Printf.eprintf
-        "warning: the hypotheses are contradictory (they describe an empty region), so \
-         the claim holds only vacuously.\n"
+    (fun w -> Printf.eprintf "warning: %s\n" w)
+    (Proof_result.vacuity_warnings ~vars hypotheses)
 ;;
 
-let string_of_failure ~vars = function
-  | Checker.Negative_coefficient q ->
-    Printf.sprintf "a certificate coefficient is negative: %s" (Rational.to_string q)
-  | Checker.Mismatch { target; got } ->
-    Printf.sprintf
-      "the certificate does not expand to the target polynomial:\n\
-      \  expected: %s\n\
-      \  got:      %s"
-      (Pretty.string_of_poly vars target)
-      (Pretty.string_of_poly vars got)
-  | Checker.Unknown_constraint g ->
-    Printf.sprintf
-      "the certificate scales %s, which is not a declared hypothesis"
-      (Pretty.string_of_poly vars g)
-;;
+let string_of_failure = Proof_result.describe_failure
 
 (* --- commands ----------------------------------------------------------- *)
 
@@ -245,74 +198,65 @@ let run_demo () =
   else finish Check_failed
 ;;
 
+(* The pipeline itself (parse, normalize, search, trusted check) lives in
+   {!Proof_result.prove}; this command only formats the resulting record. The
+   [Proved] status in the record is already gated on the trusted checker. *)
 let run_prove (input : string) =
-  match Parser.parse input with
-  | Error msg ->
-    Printf.eprintf "error: could not parse the inequality: %s\n" msg;
+  let open Proof_result in
+  let r = prove input in
+  List.iter (fun w -> Printf.eprintf "warning: %s\n" w) r.vacuous;
+  match r.status with
+  | Invalid_input ->
+    Printf.eprintf "error: %s\n" (Option.value r.error ~default:"invalid input");
     finish Invalid_input
-  | Ok claim ->
-    (match Normalizer.poly_of_claim claim with
-     | exception Invalid_argument msg ->
-       Printf.eprintf "error: could not reduce the inequality: %s\n" msg;
-       finish Invalid_input
-     | vars, target ->
-       (match claim.Ast.hyps with
-        | _ :: _ ->
-          (* Constrained claim: search for a Positivstellensatz certificate. *)
-          (match Constrained.hypotheses_of_claim vars claim with
-           | exception Invalid_argument msg ->
-             Printf.eprintf "error: could not reduce a side condition: %s\n" msg;
-             finish Invalid_input
-           | hypotheses ->
-             warn_vacuous ~vars hypotheses;
-             (match Prover.prove_constrained ~hypotheses target with
-              | Prover.Proved_constrained cert ->
-                (* Untrusted output MUST pass the trusted checker before PROVED. *)
-                if Checker.check_constrained_ok ~hypotheses target cert
-                then (
-                  print_proved_constrained ~claim:input ~vars ~hypotheses ~target ~cert;
-                  finish Proved)
-                else (
-                  preamble_constrained ~claim:input ~vars ~hypotheses ~target;
-                  note
-                    "The prover proposed a certificate, but the trusted checker rejected \
-                     it.";
-                  finish Check_failed)
-              | Prover.No_constrained_certificate ->
-                preamble_constrained ~claim:input ~vars ~hypotheses ~target;
-                note
-                  (String.concat
-                     "\n"
-                     [ "No supported Positivstellensatz certificate was found. This is \
-                        not a"
-                     ; "disproof: the constrained search does not yet cover every case (a"
-                     ; "non-constant square multiplier, or a product of three or more"
-                     ; "hypotheses, needs the semidefinite step)."
-                     ]);
-                finish No_cert_found))
-        | [] ->
-          (match Prover.prove target with
-           | Prover.Proved cert ->
-             (* Untrusted output MUST pass the trusted checker before PROVED. *)
-             if Checker.check_sos target cert
-             then (
-               print_proved ~claim:input ~vars ~target ~cert;
-               finish Proved)
-             else (
-               preamble ~claim:input ~vars ~target;
-               note
-                 "The prover proposed a certificate, but the trusted checker rejected it.";
-               finish Check_failed)
-           | Prover.No_certificate_found ->
-             preamble ~claim:input ~vars ~target;
-             note
-               (String.concat
-                  "\n"
-                  [ "No supported sum-of-squares certificate was found. This is not a"
-                  ; "disproof: the target may be true but need a certificate this prover"
-                  ; "cannot yet build (e.g. one requiring the semidefinite step)."
-                  ]);
-             finish No_cert_found)))
+  | status ->
+    (* Any status past Invalid_input has a normalized target. *)
+    let target = Option.value r.target ~default:Polynomial.zero in
+    let preamble_of_result () =
+      match r.hypotheses with
+      | [] -> preamble ~claim:input ~vars:r.vars ~target
+      | hypotheses ->
+        preamble_constrained ~claim:input ~vars:r.vars ~hypotheses ~target
+    in
+    (match status, r.certificate with
+     | Proved, Some (Sos cert) ->
+       print_proved ~claim:input ~vars:r.vars ~target ~cert;
+       finish Proved
+     | Proved, Some (Positivstellensatz cert) ->
+       print_proved_constrained
+         ~claim:input
+         ~vars:r.vars
+         ~hypotheses:r.hypotheses
+         ~target
+         ~cert;
+       finish Proved
+     | (Proved | Check_failed), _ ->
+       (* Proved always carries a certificate, so this arm is Check_failed. *)
+       preamble_of_result ();
+       note
+         (Option.value
+            r.error
+            ~default:"The prover proposed a certificate, but the trusted checker \
+                      rejected it.");
+       finish Check_failed
+     | (No_cert_found | Invalid_input), _ ->
+       preamble_of_result ();
+       note
+         (String.concat
+            "\n"
+            (match r.hypotheses with
+             | [] ->
+               [ "No supported sum-of-squares certificate was found. This is not a"
+               ; "disproof: the target may be true but need a certificate this prover"
+               ; "cannot yet build (e.g. one requiring the semidefinite step)."
+               ]
+             | _ :: _ ->
+               [ "No supported Positivstellensatz certificate was found. This is not a"
+               ; "disproof: the constrained search does not yet cover every case (a"
+               ; "non-constant square multiplier, or a product of three or more"
+               ; "hypotheses, needs the semidefinite step)."
+               ]));
+       finish No_cert_found)
 ;;
 
 let run_check (path : string) =

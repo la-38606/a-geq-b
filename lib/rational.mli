@@ -39,6 +39,10 @@ val is_positive : t -> bool
     used to bound coefficient growth; [0] for [0] and [±1]. *)
 val size_bits : t -> int
 
+(** Nearest double-precision float. For the untrusted numerical side only; the
+    trusted checker never leaves exact arithmetic. *)
+val to_float : t -> float
+
 (** Human-readable form: ["3"], ["-4"], ["1/2"]. *)
 val to_string : t -> string
 

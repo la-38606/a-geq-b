@@ -54,6 +54,11 @@ let is_positive (q : t) : bool = sign q > 0
     up on pathological input; [0] for the integer values [0] and [±1]. *)
 let size_bits (q : t) : int = Z.numbits (Q.num q) + Z.numbits (Q.den q)
 
+(** Nearest double-precision float. For the untrusted numerical side only (e.g.
+    building test inputs for the SDP path); the trusted checker never leaves
+    exact arithmetic. *)
+let to_float : t -> float = Q.to_float
+
 (** Human-readable form: "3", "-4", "1/2". *)
 let to_string : t -> string = Q.to_string
 

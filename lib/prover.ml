@@ -18,8 +18,13 @@ type result =
   | Proved of Certificate.t
   | No_certificate_found (** not disproof — just "this prover found nothing" *)
 
+type constrained_strategy =
+  | Constant_multipliers
+  | Equality_reduction
+  | Hypothesis_products
+
 type constrained_result =
-  | Proved_constrained of Constrained.t
+  | Proved_constrained of constrained_strategy * Constrained.t
   | No_constrained_certificate
 
 (* ---------------------------------------------------------------------- *)
@@ -484,7 +489,7 @@ let prove_by_constants ~(hypotheses : Constrained.hypothesis list) (target : Pol
     | [] -> No_constrained_certificate
     | active :: rest ->
       (match try_assignment ~hypotheses target active with
-       | Some cert -> Proved_constrained cert
+       | Some cert -> Proved_constrained (Constant_multipliers, cert)
        | None -> go rest)
   in
   go (none @ uniform @ singles @ doubles)
@@ -612,12 +617,12 @@ let prove_by_reduction ~(hypotheses : Constrained.hypothesis list) (target : Pol
     let eq_products, remainder = reduce_by_zeros target zeros in
     (match prove_by_constants ~hypotheses:nonnegs remainder with
      | No_constrained_certificate -> No_constrained_certificate
-     | Proved_constrained inner ->
+     | Proved_constrained (_, inner) ->
        let cert =
          Constrained.make ~base:inner.base ~products:(inner.products @ eq_products)
        in
        if Checker.check_constrained_ok ~hypotheses target cert
-       then Proved_constrained cert
+       then Proved_constrained (Equality_reduction, cert)
        else No_constrained_certificate)
 ;;
 
@@ -652,7 +657,7 @@ let prove_by_products ~(hypotheses : Constrained.hypothesis list) (target : Poly
                ]
          in
          if Checker.check_constrained_ok ~hypotheses target cert
-         then Proved_constrained cert
+         then Proved_constrained (Hypothesis_products, cert)
          else go rest)
   in
   go candidates

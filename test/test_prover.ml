@@ -94,7 +94,7 @@ let constrained (s : string) : Constrained.hypothesis list * Polynomial.t =
 let provable_c (s : string) () =
   let hypotheses, p = constrained s in
   match Prover.prove_constrained ~hypotheses p with
-  | Prover.Proved_constrained cert ->
+  | Prover.Proved_constrained (_, cert) ->
     Alcotest.(check bool)
       ("checker accepts constrained proof for: " ^ s)
       true

@@ -6,5 +6,6 @@
   test_prover
   test_lean_export
   test_constrained
-  test_sdp)
+  test_sdp
+  test_proof_result)
  (libraries a_geq_b alcotest))
