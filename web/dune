@@ -1,0 +1,7 @@
+(executable
+ (name server)
+ (public_name a-geq-b-web)
+ (package a-geq-b)
+ ; unix   -> the localhost listener and the solver subprocess
+ ; yojson -> request/response bodies (the library already speaks it)
+ (libraries a_geq_b unix yojson))
