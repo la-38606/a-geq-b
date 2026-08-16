@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A ≥ B — certificate prover</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext x='8' y='13' font-size='14' text-anchor='middle' font-family='Georgia,serif'%3E%E2%89%A5%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<header class="site">
+  <a class="wordmark" href="/">A&thinsp;≥&thinsp;B</a>
+  <nav>
+    <a href="/" aria-current="page">Prover</a>
+    <a href="/how-it-works">How it works</a>
+  </nav>
+</header>
+
+<main>
+  <section class="intro">
+    <h1>Prove a polynomial inequality</h1>
+    <p class="sub">
+      Type an inequality. A≥B searches for an explicit algebraic certificate —
+      a way of rewriting the difference of the two sides that is visibly
+      nonnegative — and verifies it with exact rational arithmetic before it
+      claims a proof.
+    </p>
+  </section>
+
+  <form id="prove-form" autocomplete="off">
+    <input id="claim-input" type="text" spellcheck="false" autocapitalize="off"
+           aria-label="Inequality to prove"
+           placeholder="a^2 + b^2 + c^2 &gt;= a*b + b*c + c*a">
+    <button id="prove-button" type="submit">Prove</button>
+  </form>
+  <p class="hint">
+    Polynomials over the rationals, with <code>+ - * / ^</code>.
+    Add assumptions with <code>given</code>, e.g.
+    <code>a^2 + b^2 &gt;= 2 given a*b = 1</code>.
+  </p>
+
+  <div id="examples" class="examples" hidden>
+    <span class="examples-label">Examples</span>
+    <div class="chips" id="example-chips"></div>
+  </div>
+
+  <section id="result" hidden aria-live="polite">
+    <div id="status-banner" class="status"></div>
+    <p id="status-note" class="status-note"></p>
+
+    <div id="nocert-explain" class="explain" hidden>
+      <p>Not finding a certificate can mean any of:</p>
+      <ul>
+        <li>the claim is false;</li>
+        <li>the claim is true but has no sum-of-squares certificate
+            (the Motzkin polynomial is the classic example);</li>
+        <li>a certificate exists but lies beyond the searches this prover
+            implements.</li>
+      </ul>
+      <p>A≥B never concludes “false” — it only ever reports that a
+         verified proof was or was not found.</p>
+    </div>
+
+    <div id="warnings"></div>
+
+    <section class="block" id="claim-block">
+      <div class="label">Claim</div>
+      <div class="math" id="claim-echo"></div>
+    </section>
+
+    <section class="block" id="assuming-block" hidden>
+      <div class="label">Assuming</div>
+      <div class="math" id="assuming"></div>
+    </section>
+
+    <section class="block" id="target-block" hidden>
+      <div class="label">Reduces to</div>
+      <div class="math" id="target"></div>
+    </section>
+
+    <section class="block" id="cert-block" hidden>
+      <div class="label">Certificate</div>
+      <div class="math identity" id="certificate"></div>
+      <p class="note" id="cert-note"></p>
+    </section>
+
+    <div class="actions" id="actions" hidden>
+      <button id="trace-toggle" type="button" class="ghost">How was this proved?</button>
+      <button id="details-toggle" type="button" class="ghost" hidden>Certificate details</button>
+      <button id="lean-button" type="button" class="ghost" hidden>Export Lean proof</button>
+    </div>
+
+    <section class="panel" id="trace-panel" hidden>
+      <div class="label">Proof path</div>
+      <ol id="trace-list" class="trace"></ol>
+      <p class="note">
+        Stages tagged <span class="badge badge-search">search</span> are
+        untrusted: they may fail, or propose a bad candidate. Only the
+        <span class="badge badge-trusted">trusted</span> exact check accepts a
+        certificate, so a bug in search can lose a proof but never invent one.
+      </p>
+    </section>
+
+    <section class="panel" id="details-panel" hidden>
+      <div class="label">LaTeX</div>
+      <div class="codebox">
+        <pre id="latex-out"></pre>
+        <button type="button" class="copy" data-copy="latex-out">Copy</button>
+      </div>
+      <div class="label">Certificate file (JSON)</div>
+      <div class="codebox">
+        <pre id="json-out"></pre>
+        <button type="button" class="copy" data-copy="json-out">Copy</button>
+      </div>
+      <p class="note">
+        The JSON is the certificate format the command line accepts:
+        save it and re-verify with <code>a-geq-b check &lt;file&gt;</code>.
+      </p>
+    </section>
+
+    <section class="panel" id="lean-panel" hidden>
+      <div class="label">Lean theorem</div>
+      <div class="codebox">
+        <pre id="lean-out"></pre>
+        <button type="button" class="copy" data-copy="lean-out">Copy</button>
+      </div>
+      <p class="note" id="lean-note"></p>
+    </section>
+  </section>
+</main>
+
+<footer>
+  Proof search may be heuristic or numerical; only the exact checker can say
+  PROVED. <a href="/how-it-works">How A≥B works</a>
+</footer>
+
+<script src="/app.js"></script>
+</body>
+</html>

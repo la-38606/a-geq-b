@@ -24,3 +24,11 @@ doc/*.synctex.gz
 
 # Lean build artifacts and fetched packages (Mathlib); keep lake-manifest.json
 lean/.lake/
+
+# Browser-test dependencies and outputs (see web/e2e)
+web/e2e/node_modules/
+web/e2e/test-results/
+web/e2e/playwright-report/
+
+# Recorded demo videos (kept out of history; see scripts/record-demo.sh)
+demo/

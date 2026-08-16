@@ -1,0 +1,346 @@
+/* A>=B web interface.
+   One calm, paper-like theme. The visual interest is meant to come from the
+   mathematics (claims, certificates, the proof path), not from the chrome. */
+
+:root {
+  --paper: #fbfaf7;
+  --ink: #1c1c1c;
+  --faint: #6e6a63;
+  --rule: #e3e0d8;
+  --accent: #27457a;       /* links, primary button */
+  --proved: #1a6b3c;
+  --neutral: #4a5568;
+  --bad: #a13025;
+  --warn-bg: #faf3dd;
+  --warn-ink: #7a5d0e;
+  --panel: #f4f2ec;
+  --serif: Georgia, 'Times New Roman', serif;
+  --sans: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+main {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 0 1.25rem 4rem;
+}
+
+a { color: var(--accent); }
+
+code {
+  font-family: var(--mono);
+  font-size: 0.9em;
+  background: var(--panel);
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+}
+
+/* --- header / footer ---------------------------------------------------- */
+
+header.site {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 1.4rem 1.25rem 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.wordmark {
+  font-family: var(--serif);
+  font-size: 1.5rem;
+  color: var(--ink);
+  text-decoration: none;
+  letter-spacing: 0.02em;
+}
+
+header.site nav a {
+  margin-left: 1.4rem;
+  font-size: 0.95rem;
+  color: var(--faint);
+  text-decoration: none;
+}
+header.site nav a[aria-current="page"] { color: var(--ink); border-bottom: 1px solid var(--ink); }
+header.site nav a:hover { color: var(--ink); }
+
+footer {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 1.2rem 1.25rem 2.5rem;
+  border-top: 1px solid var(--rule);
+  color: var(--faint);
+  font-size: 0.88rem;
+}
+
+/* --- intro / input ------------------------------------------------------ */
+
+.intro { margin-top: 3rem; }
+
+h1 {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 1.9rem;
+  margin: 0 0 0.5rem;
+}
+
+.sub { color: var(--faint); max-width: 60ch; margin: 0 0 1.8rem; }
+
+#prove-form { display: flex; gap: 0.6rem; }
+
+#claim-input {
+  flex: 1;
+  font-family: var(--mono);
+  font-size: 1.02rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink);
+}
+#claim-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(39, 69, 122, 0.15);
+}
+
+#prove-button {
+  font-family: var(--sans);
+  font-size: 1rem;
+  padding: 0 1.4rem;
+  border: none;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+#prove-button:hover { background: #1d3560; }
+#prove-button[disabled] { opacity: 0.6; cursor: default; }
+
+.hint { color: var(--faint); font-size: 0.88rem; margin: 0.7rem 0 0; }
+
+/* --- examples ----------------------------------------------------------- */
+
+.examples { margin-top: 1.6rem; }
+
+.examples-label {
+  display: block;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin-bottom: 0.5rem;
+}
+
+.chips { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+
+.chip {
+  font-family: var(--sans);
+  font-size: 0.88rem;
+  padding: 0.3rem 0.75rem;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+}
+.chip:hover { border-color: var(--accent); color: var(--accent); }
+
+/* --- result ------------------------------------------------------------- */
+
+#result { margin-top: 2.6rem; }
+
+.status {
+  display: inline-block;
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 0.95rem;
+  letter-spacing: 0.06em;
+  padding: 0.3rem 0.8rem;
+  border-radius: 4px;
+  border: 1px solid;
+}
+.status-proved  { color: var(--proved);  border-color: var(--proved);  background: #eef7f0; }
+.status-nocert  { color: var(--neutral); border-color: var(--neutral); background: #eef0f4; }
+.status-invalid { color: var(--bad);     border-color: var(--bad);     background: #faf0ee; }
+.status-rejected{ color: var(--bad);     border-color: var(--bad);     background: #faf0ee; }
+
+.status-note { color: var(--faint); margin: 0.7rem 0 0; white-space: pre-line; }
+
+.explain {
+  margin: 0.9rem 0 0;
+  padding: 0.8rem 1rem;
+  background: var(--panel);
+  border-radius: 6px;
+  font-size: 0.92rem;
+  color: var(--ink);
+}
+.explain p { margin: 0.2rem 0; }
+.explain ul { margin: 0.4rem 0; padding-left: 1.3rem; }
+
+.warning {
+  margin: 0.9rem 0 0;
+  padding: 0.6rem 0.9rem;
+  background: var(--warn-bg);
+  color: var(--warn-ink);
+  border-radius: 6px;
+  font-size: 0.92rem;
+}
+
+/* --- labelled blocks (mirrors the CLI report) --------------------------- */
+
+.block { margin-top: 1.7rem; }
+
+.label {
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin-bottom: 0.35rem;
+}
+
+.math {
+  font-family: var(--serif);
+  font-size: 1.22rem;
+  line-height: 1.7;
+  overflow-x: auto;
+  padding-left: 0.75rem;
+}
+.math var { font-style: italic; }
+.math sup { font-size: 0.72em; }
+.math .kw {
+  font-family: var(--sans);
+  font-size: 0.72em;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin: 0 0.35em;
+}
+.math .domain-note { font-family: var(--sans); font-size: 0.8em; color: var(--faint); }
+
+.identity .cert-rhs { padding-left: 1.4rem; }
+
+.note {
+  color: var(--faint);
+  font-size: 0.9rem;
+  max-width: 62ch;
+  margin: 0.7rem 0 0;
+  padding-left: 0.75rem;
+}
+
+/* --- actions / panels --------------------------------------------------- */
+
+.actions { margin-top: 1.9rem; display: flex; flex-wrap: wrap; gap: 0.6rem; }
+
+button.ghost {
+  font-family: var(--sans);
+  font-size: 0.92rem;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+}
+button.ghost:hover { border-color: var(--accent); color: var(--accent); }
+button.ghost[aria-expanded="true"] { border-color: var(--accent); color: var(--accent); }
+
+.panel {
+  margin-top: 1.4rem;
+  padding: 1rem 1.1rem;
+  background: var(--panel);
+  border-radius: 8px;
+}
+.panel .label { margin-top: 0.6rem; }
+.panel .label:first-child { margin-top: 0; }
+
+/* --- proof trace -------------------------------------------------------- */
+
+.trace {
+  list-style: none;
+  margin: 0.4rem 0 0.8rem;
+  padding: 0;
+}
+
+.trace li {
+  display: grid;
+  grid-template-columns: 1.4rem 1fr auto;
+  gap: 0 0.4rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+.trace li:last-child { border-bottom: none; }
+
+.trace .mark { color: var(--proved); }
+.trace li.miss .mark { color: var(--faint); }
+.trace li.err .mark { color: var(--bad); }
+
+.trace .step-title { font-weight: 600; font-size: 0.95rem; }
+.trace .step-detail {
+  grid-column: 2 / 4;
+  color: var(--faint);
+  font-size: 0.88rem;
+  white-space: pre-line;
+}
+.trace .step-ms { color: var(--faint); font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+
+.badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid;
+  margin-left: 0.5rem;
+  vertical-align: 0.1em;
+}
+.badge-trusted { color: var(--proved); border-color: var(--proved); }
+.badge-search  { color: var(--faint);  border-color: var(--faint); }
+
+/* --- code boxes --------------------------------------------------------- */
+
+.codebox { position: relative; margin: 0.3rem 0 0.6rem; }
+
+.codebox pre {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  background: #fff;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 0.8rem 4.4rem 0.8rem 0.9rem;
+  margin: 0;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.codebox .copy {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  font-size: 0.78rem;
+  padding: 0.15rem 0.6rem;
+  border: 1px solid var(--rule);
+  border-radius: 5px;
+  background: var(--paper);
+  color: var(--faint);
+  cursor: pointer;
+}
+.codebox .copy:hover { color: var(--accent); border-color: var(--accent); }
+
+@media (max-width: 560px) {
+  #prove-form { flex-direction: column; }
+  #prove-button { padding: 0.6rem 1.4rem; }
+}

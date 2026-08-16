@@ -1,0 +1,45 @@
+{
+  "comment": "Curated presets for the prover page. Each one exercises a distinct capability; the last is a deliberate NO_CERT_FOUND (true but not a sum of squares).",
+  "examples": [
+    {
+      "label": "Two squares",
+      "claim": "a^2 + b^2 >= 2*a*b",
+      "note": "the simplest sum-of-squares certificate: (a - b)^2"
+    },
+    {
+      "label": "Three variables",
+      "claim": "a^2 + b^2 + c^2 >= a*b + b*c + c*a",
+      "note": "classic symmetric inequality"
+    },
+    {
+      "label": "Rational coefficients",
+      "claim": "(a^2 + b^2)/2 >= a*b",
+      "note": "denominators are cleared before the search"
+    },
+    {
+      "label": "Equality assumption",
+      "claim": "a^2 + b^2 >= 2 given a*b = 1",
+      "note": "Positivstellensatz certificate on a domain"
+    },
+    {
+      "label": "Sign assumptions",
+      "claim": "a*b >= 0 given a >= 0, b >= 0",
+      "note": "uses a product of the nonnegative hypotheses"
+    },
+    {
+      "label": "Cubes under an equality",
+      "claim": "a^3 >= b^3 given a = b",
+      "note": "polynomial multiplier found by reduction modulo a - b"
+    },
+    {
+      "label": "Four-variable AM–GM",
+      "claim": "a^4 + b^4 + c^4 + d^4 >= 4*a*b*c*d",
+      "note": "beyond the exact search; routed through the numerical SDP"
+    },
+    {
+      "label": "Motzkin polynomial",
+      "claim": "x^4*y^2 + x^2*y^4 + 1 >= 3*x^2*y^2",
+      "note": "true, but provably not a sum of squares — expect NO CERTIFICATE FOUND"
+    }
+  ]
+}
