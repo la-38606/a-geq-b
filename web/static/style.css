@@ -344,3 +344,146 @@ button.ghost[aria-expanded="true"] { border-color: var(--accent); color: var(--a
   #prove-form { flex-direction: column; }
   #prove-button { padding: 0.6rem 1.4rem; }
 }
+
+/* --- How A>=B works ------------------------------------------------------ */
+
+.how h2 {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 1.35rem;
+  margin: 2.6rem 0 0.6rem;
+}
+.how h3 {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 1.1rem;
+  margin: 1.6rem 0 0.4rem;
+}
+.how p, .how li, .how dd { max-width: 68ch; }
+
+.math-inline { font-family: var(--serif); font-size: 1.05em; white-space: nowrap; }
+.math-inline var { font-style: italic; }
+.canon { font-size: 1.15rem; }
+
+/* pipeline: stage name on the left, what happens on the right */
+.pipeline { list-style: none; margin: 1.2rem 0; padding: 0; }
+.pipeline > li { display: flex; gap: 1.1rem; align-items: baseline; }
+.pipeline .stage {
+  flex: 0 0 9.5rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-align: right;
+  padding: 0.15rem 0;
+}
+.pipeline .stage.verdict { color: var(--proved); letter-spacing: 0.05em; }
+.pipeline .stage-what { color: var(--ink); font-size: 0.95rem; max-width: 56ch; }
+.pipeline .stage-what code { font-size: 0.85em; }
+.pipeline li.arrow {
+  display: block;
+  flex: none;
+  width: 9.5rem;
+  text-align: right;
+  color: var(--faint);
+  padding: 0.05rem 0.4rem 0.05rem 0;
+}
+.pipeline .badge { margin-left: 0.4rem; }
+
+/* trust boundary */
+.boundary { margin: 1.4rem 0; }
+.zone {
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  padding: 0.9rem 1.2rem;
+  background: #fff;
+}
+.zone-search { border-style: dashed; }
+.zone-trusted { border-color: var(--proved); background: #f2f8f4; }
+.zone-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin-bottom: 0.4rem;
+}
+.zone-trusted .zone-title { color: var(--proved); }
+.zone ul { margin: 0.2rem 0; padding-left: 1.25rem; }
+.zone li { padding: 0.08rem 0; }
+.zone-note { color: var(--faint); font-size: 0.85rem; margin-top: 0.5rem; font-style: italic; }
+
+.boundary-line {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin: 0.7rem 0;
+  color: var(--faint);
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+}
+.boundary-line::before, .boundary-line::after {
+  content: '';
+  flex: 1;
+  border-top: 2px dashed var(--rule);
+}
+
+/* SDP flow */
+.flow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 1.2rem 0;
+  font-size: 0.88rem;
+}
+.flow-box {
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: #fff;
+  padding: 0.5rem 0.8rem;
+  text-align: center;
+  line-height: 1.45;
+}
+.flow-untrusted { border-style: dashed; color: var(--faint); }
+.flow-trusted { border-color: var(--proved); color: var(--proved); background: #f2f8f4; }
+.flow-arrow { color: var(--faint); }
+
+/* statuses / languages */
+.statuses dt, .langs dt { font-weight: 600; margin-top: 0.9rem; }
+.statuses dd, .langs dd { margin: 0.15rem 0 0 0; }
+.st-proved { color: var(--proved); letter-spacing: 0.04em; }
+.st-nocert { color: var(--neutral); letter-spacing: 0.04em; }
+.st-invalid { color: var(--bad); letter-spacing: 0.04em; }
+
+.lean-facts li { margin: 0.6rem 0; }
+
+/* implementation details */
+details.impl {
+  margin: 2.4rem 0 0;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 0 1.2rem;
+}
+details.impl summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 0.9rem 0;
+  color: var(--accent);
+}
+details.impl[open] summary { border-bottom: 1px solid var(--rule); }
+details.impl > *:last-child { padding-bottom: 1rem; }
+
+table.modules { border-collapse: collapse; margin: 0.8rem 0; width: 100%; }
+table.modules td {
+  border-bottom: 1px solid var(--rule);
+  padding: 0.4rem 0.6rem 0.4rem 0;
+  vertical-align: top;
+  font-size: 0.92rem;
+}
+table.modules td:first-child { white-space: nowrap; padding-right: 1.2rem; }
+table.modules tr:last-child td { border-bottom: none; }
+table.modules tr.trusted-row td { background: #eef7f0; }
+table.modules tr.trusted-row td:first-child { border-radius: 4px 0 0 4px; }
+table.modules tr.trusted-row td:last-child { border-radius: 0 4px 4px 0; }
+
+.try { margin-top: 2.4rem; }
