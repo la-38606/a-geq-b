@@ -1,10 +1,10 @@
 # A≥B (`a-geq-b`)
 
 Checking a polynomial inequality numerically is easy: sample a million
-points, watch none of them fail. That is evidence, not proof. Producing a
-proof that someone else can verify independently, without trusting your
-search code, your solver, or your floating point, is the harder and more
-interesting problem.
+points and watch none of them fail. That is evidence, not proof. Producing
+a proof that can be verified independently, without trusting the search
+code, the solver, or the floating point that found it, is the harder
+problem.
 
 A≥B proves inequalities by finding an explicit algebraic certificate. For
 
@@ -15,11 +15,11 @@ it returns the rewriting
 $$a^2 + b^2 - 2ab = (a-b)^2$$
 
 The right side is visibly nonnegative, so the inequality holds everywhere.
-A certificate like this is small enough to inspect by eye and simple enough
-for a small exact checker to verify mechanically. That checker is the whole
-trust story: search may be heuristic or numerical and is allowed to be
-wrong, because nothing is reported `PROVED` until the exact checker accepts
-the certificate. A bug in search can lose a proof; it cannot invent one.
+A certificate this small can be inspected by eye, and a small checker can
+verify it mechanically over exact rationals. Search may be heuristic or
+numerical, because nothing it produces is trusted: `PROVED` is returned
+only after the checker accepts the certificate. A bug in search can lose a
+proof; it cannot invent one.
 
 ## Demo
 
@@ -65,15 +65,11 @@ A sum-of-squares certificate for a claim $A \ge B$ is an exact identity
 
 $$A - B = \sum_i c_i\,q_i^2, \qquad c_i \in \mathbb{Q}_{\ge 0}$$
 
-If it holds, the right side is nonnegative at every real point, so the
-inequality is proved; and whether it holds is decided by polynomial
+If the identity holds, the right side is nonnegative at every real point,
+so the inequality is proved; and whether it holds is decided by polynomial
 expansion and comparison over exact rationals. That comparison is the
-entire trusted surface of the system.
-
-This separation is the engineering core of the project. Finding a
-decomposition can involve Gram matrices, bounded grid searches,
-Positivstellensatz strategies, and an off-the-shelf numerical solver. None
-of that is trusted:
+entire trusted surface of the system. Everything else, however elaborate,
+sits on the other side of one boundary:
 
 ```
 UNTRUSTED SEARCH
@@ -90,50 +86,45 @@ TRUSTED CORE
   the certificate checker (sole authority on PROVED)
 ```
 
-The Python solver can return a bad matrix without compromising soundness:
-its output still has to be reconstructed over the rationals and accepted by
-the OCaml checker before anything is called proved.
+## Proof methods
 
-## What it supports
+Unconstrained inequalities are proved by exact sum-of-squares search: a
+Gram matrix over candidate monomial bases, factored by rational LDL^T,
+with a bounded grid over the free entries. Division is allowed in the
+input; denominators are cleared soundly.
 
-- Unconstrained polynomial inequalities over the rationals, proved by exact
-  sum-of-squares certificates. Division is allowed in the input;
-  denominators are cleared soundly.
-- Constrained inequalities via `given`, proved by Positivstellensatz
-  certificates
+Constrained inequalities, written with `given`, are proved by
+Positivstellensatz certificates
 
-  $$p = \sigma_0 + \sum_i \sigma_i\,g_i + \sum_j \lambda_j\,h_j$$
+$$p = \sigma_0 + \sum_i \sigma_i\,g_i + \sum_j \lambda_j\,h_j$$
 
-  with sums of squares $\sigma_i$ scaling hypotheses $g_i \ge 0$ and
-  arbitrary multipliers $\lambda_j$ on hypotheses $h_j = 0$. The search
-  covers constant multipliers, polynomial multipliers on equalities (found
-  by reduction), and products of two nonnegative hypotheses.
-- Targets whose Gram matrix has more freedom than the exact search
-  resolves are closed by the numerical route below.
+where sums of squares $\sigma_i$ scale hypotheses $g_i \ge 0$ and
+arbitrary multipliers $\lambda_j$ scale hypotheses $h_j = 0$. The search
+tries constant multipliers, polynomial multipliers on equalities (found by
+reduction), and products of two nonnegative hypotheses; the checker
+additionally verifies that every scaled polynomial is a declared
+hypothesis.
 
-`NO_CERT_FOUND` is never a disproof. It can mean the claim is false, or
-true but not a sum of squares (Motzkin's polynomial is the classic case),
-or provable only by a certificate outside the implemented searches. A≥B
-never concludes "false".
-
-## The numerical SDP route
-
-Finding a sum-of-squares decomposition is in general a semidefinite
-feasibility problem. When exact search comes up empty, A≥B emits the Gram
-program as JSON, lets cvxpy find an approximate positive semidefinite
-matrix, rounds it back to exact rationals, reads off the squares by
-LDL^T, and hands the result to the same trusted checker. The float matrix
-only guides the search; the certificate that gets accepted is exact.
+When exact search comes up empty on an unconstrained target, A≥B emits the
+Gram program as JSON, lets cvxpy find an approximate positive semidefinite
+matrix, rounds it back to exact rationals over a ladder of denominators,
+and reads off the squares. The reconstructed certificate goes to the same
+checker as every other candidate.
 
 ```
 python3 -m venv .venv && .venv/bin/python -m pip install -r sdp/requirements.txt
 .venv/bin/python sdp/prove.py "a^4 + b^4 + c^4 + d^4 >= 4*a*b*c*d"   # -> PROVED
 ```
 
-The web server picks up the same virtualenv automatically, so the SDP route
-works from the browser. With it, all 63 in-scope sum-of-squares corpus
-targets are proved (`corpus/run_sdp.py`); the exact search alone closes 53
-of them. See [sdp/README.md](sdp/README.md).
+The web server picks up this virtualenv automatically. With the numerical
+route, all 63 in-scope sum-of-squares corpus targets are proved
+(`corpus/run_sdp.py`); exact search alone closes 53 of them. See
+[sdp/README.md](sdp/README.md).
+
+`NO_CERT_FOUND` is never a disproof. It can mean the claim is false, or
+true but not a sum of squares (Motzkin's polynomial is the classic case),
+or provable only by a certificate outside the implemented searches. A≥B
+never concludes "false".
 
 ## Lean
 
@@ -152,29 +143,31 @@ See [lean/README.md](lean/README.md).
 
 ## Testing
 
-- `dune runtest`: 141 cases across eight suites covering polynomial
-  arithmetic laws and canonicalization, the parser, the checker against
-  adversarial certificates (negative weights, wrong expansions, missing and
-  extra terms, undeclared hypotheses), prover soundness on false and
-  out-of-scope targets, the constrained strategies, Lean export, SDP
-  rounding, the structured pipeline record, and the syntactic LaTeX layer.
-  One test hands the pipeline a deliberately wrong numerical Gram matrix
-  and asserts it cannot end in `PROVED`.
-- `cd web/e2e && npx playwright test`: 14 browser tests against the real
-  server, asserting proof semantics, honest failure states, trace accuracy,
-  typeset content (via the LaTeX each block carries), and Lean-export
-  honesty.
-- `python3 corpus/verify.py` machine-verifies the 60 stored certificates in
-  the [corpus](corpus/README.md) of 119 tagged inequalities;
-  `corpus/sanity_sample.py` numerically samples all 119 on their domains
-  (sampling is a sanity check, never proof); `corpus/run_prover.py`
-  enforces that no false, constrained, or non-SOS entry is ever proved.
+The test suites concentrate on the boundary. Adversarial certificates
+(negative weights, wrong expansions, missing and extra terms, terms
+scaling an undeclared hypothesis) must be rejected, and a deliberately
+wrong numerical Gram matrix fed through the SDP hook must end in
+`NO_CERT_FOUND`, never `PROVED`. A [corpus](corpus/README.md) of 119
+tagged inequalities is guarded by three independent gates: every stored certificate re-verified
+by the checker, every claim numerically sampled on its domain by a
+separate Python oracle (sampling is a sanity check, never proof), and a
+soundness gate that no false, constrained, or non-SOS entry is ever
+proved. Browser tests drive the real server and assert semantics: what may
+be labelled PROVED, that failure states stay honest, that the rendered
+trace matches the route the record reports, and that the Lean view never
+overstates what was checked.
+
+```
+dune runtest                      # 141 cases across eight suites
+cd web/e2e && npx playwright test # 14 browser tests
+python3 corpus/verify.py          # certificates through the trusted checker
+```
 
 ## Architecture
 
-Three languages, one trust story: OCaml for everything exact (algebra,
-parser, certificates, the trusted checker, search orchestration, both
-interfaces), Python for untrusted numerics only, Lean for the formal layer.
+OCaml holds everything exact: the algebra, the parser, the certificate
+formats, the trusted checker, search orchestration, and both interfaces.
+Python holds untrusted numerics only. Lean holds the formal layer.
 
 ```
 lib/       Rational, Monomial, Polynomial, Parser, Normalizer, Certificate,
