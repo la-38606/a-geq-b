@@ -22,16 +22,14 @@
   <section class="intro">
     <h1>Prove a polynomial inequality</h1>
     <p class="sub">
-      Type an inequality. A≥B searches for an explicit algebraic certificate,
-      a way of rewriting the difference of the two sides that is visibly
-      nonnegative, and verifies it with exact rational arithmetic before it
-      claims a proof.
+      A≥B searches for an explicit algebraic certificate and verifies it with
+      exact rational arithmetic before it claims a proof.
     </p>
   </section>
 
+  <label class="field-label" for="claim-input">Expression</label>
   <form id="prove-form" autocomplete="off">
     <input id="claim-input" type="text" spellcheck="false" autocapitalize="off"
-           aria-label="Inequality to prove"
            placeholder="a^2 + b^2 + c^2 &gt;= a*b + b*c + c*a">
     <button id="prove-button" type="submit">Prove</button>
   </form>
@@ -42,7 +40,8 @@
   </p>
 
   <div id="preview" class="preview" hidden aria-live="polite">
-    <span id="preview-math"></span>
+    <span class="field-label">Preview</span>
+    <div class="preview-body"><span id="preview-math"></span></div>
   </div>
 
   <details id="examples" hidden open>
@@ -51,7 +50,10 @@
   </details>
 
   <section id="result" hidden aria-live="polite">
-    <div id="status-banner" class="status"></div>
+    <div class="status-line">
+      <span class="status-word">Status</span>
+      <span id="status-banner" class="status"></span>
+    </div>
     <p id="status-note" class="status-note"></p>
 
     <div id="nocert-explain" class="explain" hidden>
@@ -104,8 +106,13 @@
     </div>
 
     <section class="panel" id="trace-panel" hidden>
-      <div class="label">Proof path</div>
-      <ol id="trace-list" class="trace"></ol>
+      <div class="label">Proof trace</div>
+      <table id="trace-list" class="trace">
+        <thead>
+          <tr><th>Stage</th><th>Result</th><th></th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
       <p class="note">
         Stages tagged <span class="tag tag-search">search</span> are
         untrusted: they may fail, or propose a bad candidate. Only the

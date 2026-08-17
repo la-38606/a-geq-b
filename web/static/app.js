@@ -61,24 +61,22 @@ function certificateLatex(d) {
 }
 
 function renderTrace(d) {
-  const list = $('trace-list');
-  list.replaceChildren();
+  const body = $('trace-list').querySelector('tbody');
+  body.replaceChildren();
   for (const s of d.trace) {
-    const li = document.createElement('li');
-    const isErr = !s.ok && (s.trusted || d.status === 'INVALID_INPUT');
-    li.className = s.ok ? '' : (isErr ? 'err' : 'miss');
+    const row = document.createElement('tr');
+    if (!s.ok) row.className = 'miss';
     const tag = s.trusted
       ? '<span class="tag tag-trusted">trusted</span>'
       : '<span class="tag tag-search">search</span>';
     const ms = s.ms == null ? '' : s.ms < 0.05 ? '&lt;0.1 ms' : s.ms.toFixed(1) + ' ms';
-    li.innerHTML =
-      '<span class="mark">' + (s.ok ? '✓' : '✕') + '</span>' +
-      '<span class="step-title"></span>' +
-      '<span class="step-ms">' + ms + '</span>' +
-      '<span class="step-detail"></span>';
-    li.querySelector('.step-title').textContent = s.title;
-    li.querySelector('.step-title').insertAdjacentHTML('beforeend', tag);
-    const detail = li.querySelector('.step-detail');
+    row.innerHTML =
+      '<td class="step-title"></td>' +
+      '<td class="step-detail"></td>' +
+      '<td class="step-ms">' + ms + '</td>';
+    row.querySelector('.step-title').textContent = s.title;
+    row.querySelector('.step-title').insertAdjacentHTML('beforeend', tag);
+    const detail = row.querySelector('.step-detail');
     // Typeset the two stages whose content is mathematics; the rest is prose.
     if (s.title === 'Normalize' && s.ok && d.target) {
       tex(detail, d.target.latex + ' \\ge 0');
@@ -87,7 +85,7 @@ function renderTrace(d) {
     } else {
       detail.textContent = s.detail;
     }
-    list.appendChild(li);
+    body.appendChild(row);
   }
   $('sdp-note').hidden =
     !d.trace.some((s) => s.title === 'Numerical SDP' && s.ok);

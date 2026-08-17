@@ -94,7 +94,7 @@ test.describe('proof trace', () => {
   test('the trace shows the exact route with the trust tags', async ({ page }) => {
     await prove(page, 'a^2 + b^2 >= 2*a*b');
     await page.click('#trace-toggle');
-    const steps = page.locator('#trace-list li');
+    const steps = page.locator('#trace-list tbody tr');
     await expect(steps).toHaveCount(4); // parse, normalize, exact search, check
     await expect(steps.nth(0)).toContainText('Parse');
     await expect(steps.nth(0).locator('.tag-trusted')).toBeVisible();
@@ -108,7 +108,7 @@ test.describe('proof trace', () => {
   test('the trace of a failed search records the miss honestly', async ({ page }) => {
     await prove(page, 'x^4*y^2 + x^2*y^4 + 1 >= 3*x^2*y^2');
     await page.click('#trace-toggle');
-    const search = page.locator('#trace-list li', { hasText: 'Exact search' });
+    const search = page.locator('#trace-list tbody tr', { hasText: 'Exact search' });
     await expect(search).toContainText('no certificate');
     // No trusted-check step may appear when nothing was checked. (Match on
     // step titles: a step *detail* legitimately mentions the exact checker.)
