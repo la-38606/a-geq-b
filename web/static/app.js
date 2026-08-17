@@ -150,6 +150,7 @@ function renderResult(d) {
     warnings.appendChild(p);
   }
 
+  $('claim-block').hidden = false;
   $('claim-echo').innerHTML = mathHTML(d.claim);
 
   const hyps = d.hypotheses || [];
@@ -221,7 +222,6 @@ async function prove(claim) {
       renderServerError(data.error || 'request failed (HTTP ' + res.status + ')');
     } else {
       renderResult(data);
-      $('claim-block').hidden = false;
     }
   } catch {
     renderServerError('Could not reach the local server. Is a-geq-b-web still running?');

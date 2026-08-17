@@ -44,6 +44,11 @@ dune build            # the a-geq-b binary the scripts call
 
 prints the certificate and a `Status: PROVED` line, exactly like `a-geq-b prove`.
 
+The web server (`a-geq-b-web`) finds this virtualenv on its own: when
+`.venv/bin/python` exists it pipes emitted Gram programs through
+`solve_sdp.py`, so browser proofs of harder targets take the same route. When
+the venv is missing the proof trace says the solver was unavailable.
+
 ## Files
 
 - `prove.py`: the orchestrator: runs `sdp-emit`, solves, runs `sdp-check`.
