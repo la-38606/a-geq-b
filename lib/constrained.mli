@@ -58,10 +58,17 @@ val is_impossible_constant : hypothesis -> bool
 (** ["g >= 0"] or ["h = 0"]. *)
 val string_of_hypothesis : Pretty.vars -> hypothesis -> string
 
+(** ["g \ge 0"] or ["h = 0"], the LaTeX twin of {!string_of_hypothesis}. *)
+val latex_of_hypothesis : Pretty.vars -> hypothesis -> string
+
 (** Render the certificate's right-hand side [base + sum products]. *)
 val to_string : Pretty.vars -> t -> string
 
 val to_latex : Pretty.vars -> t -> string
+
+(** The summands of {!to_latex} individually (each base square, then each
+    product term), so a renderer can insert its own line breaks. *)
+val part_latexes : Pretty.vars -> t -> string list
 
 (** Serialise to the constrained JSON format (see [examples/]). The hypotheses
     are carried explicitly, so [claim] is just the ["A >= B"] inequality. *)

@@ -14,3 +14,13 @@ val string_of_monomial : vars -> Monomial.t -> string
 val string_of_poly : vars -> Polynomial.t -> string
 val latex_of_monomial : vars -> Monomial.t -> string
 val latex_of_poly : vars -> Polynomial.t -> string
+
+(** LaTeX of a parsed expression, purely syntactically: nothing is simplified,
+    combined, or reordered, so the typeset form shows exactly what was written
+    and typesetting cannot change meaning. Minimal bracketing by precedence;
+    division renders as a fraction. *)
+val latex_of_expr : Ast.expr -> string
+
+(** LaTeX of a whole claim, [A \ge B] (or [\le]), with any side conditions
+    appended after "given". Used for input previews. *)
+val latex_of_claim : Ast.claim -> string

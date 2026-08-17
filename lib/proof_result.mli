@@ -40,6 +40,9 @@ type certificate =
 
 type t =
   { claim : string (** the input text, verbatim *)
+  ; claim_latex : string option
+    (** purely syntactic LaTeX of the parsed claim ({!Pretty.latex_of_claim});
+        [None] when the input did not parse *)
   ; status : status
   ; vars : string list (** variable context (empty if the input was invalid) *)
   ; hypotheses : Constrained.hypothesis list

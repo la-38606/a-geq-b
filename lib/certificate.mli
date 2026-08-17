@@ -21,6 +21,10 @@ val to_string : Pretty.vars -> t -> string
 
 val to_latex : Pretty.vars -> t -> string
 
+(** The summands of {!to_latex} individually (["c_i\\left(q_i\\right)^{2}"]),
+    so a renderer can insert its own line breaks between terms. *)
+val term_latexes : Pretty.vars -> t -> string list
+
 (** Serialise to the JSON certificate format (see [examples/]). *)
 val to_json : claim:string -> vars:Pretty.vars -> t -> Yojson.Safe.t
 

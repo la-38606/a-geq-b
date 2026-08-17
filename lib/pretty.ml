@@ -102,3 +102,86 @@ let latex_of_poly (vars : vars) (p : Polynomial.t) : string =
       terms;
     Buffer.contents buf)
 ;;
+
+(* --- LaTeX of a parsed claim, purely syntactically ----------------------- *)
+
+(* Rendering the input AST rather than a normalized polynomial: nothing is
+   simplified, combined, or reordered, so the typeset preview shows exactly the
+   claim the user wrote and typesetting cannot change meaning. *)
+
+(* Variable names as typed; multi-character names are set upright-italic as one
+   identifier rather than as a product of letters. *)
+let latex_of_name (s : string) : string =
+  if String.length s <= 1 then s else Printf.sprintf "\\mathit{%s}" s
+;;
+
+(* Precedence of the operator that produced a node, for minimal bracketing. *)
+let prec : Ast.expr -> int = function
+  | Ast.Add (_, _) | Ast.Sub (_, _) -> 1
+  | Ast.Neg _ -> 2
+  | Ast.Mul (_, _) | Ast.Div (_, _) -> 3
+  | Ast.Pow (_, _) -> 4
+  | Ast.Const _ | Ast.Var _ -> 5
+;;
+
+let rec latex_of_expr (e : Ast.expr) : string =
+  (* Bracket a subexpression whose operator binds no tighter than [level]. *)
+  let atom level sub =
+    let s = latex_of_expr sub in
+    if prec sub < level then Printf.sprintf "\\left(%s\\right)" s else s
+  in
+  match e with
+  | Ast.Const q -> Rational.to_latex q
+  | Ast.Var s -> latex_of_name s
+  | Ast.Neg a -> "-" ^ atom 2 a
+  | Ast.Add (a, b) -> latex_of_expr a ^ " + " ^ atom 1 b
+  | Ast.Sub (a, b) -> latex_of_expr a ^ " - " ^ atom 2 b
+  | Ast.Mul (a, b) ->
+    let left = atom 3 a
+    and right = atom 4 b (* also brackets x/y so a*(b/c) is not read as ab/c *) in
+    (* Juxtapose (2ab), except when the right factor starts with a digit or a
+       sign, where an explicit dot keeps 2*3 from reading as 23. *)
+    let needs_dot =
+      right <> ""
+      &&
+      match right.[0] with
+      | '0' .. '9' | '-' | '\\' -> true
+      | _ -> false
+    in
+    if needs_dot then left ^ " \\cdot " ^ right else left ^ right
+  | Ast.Div (a, b) ->
+    Printf.sprintf "\\frac{%s}{%s}" (latex_of_expr a) (latex_of_expr b)
+  | Ast.Pow (a, n) -> Printf.sprintf "%s^{%d}" (atom 5 a) n
+;;
+
+let latex_of_relop : Ast.relop -> string = function
+  | Ast.Ge -> "\\ge"
+  | Ast.Le -> "\\le"
+;;
+
+let latex_of_hyp_op : Ast.hyp_op -> string = function
+  | Ast.Hyp_ge -> "\\ge"
+  | Ast.Hyp_le -> "\\le"
+  | Ast.Hyp_eq -> "="
+;;
+
+let latex_of_claim (c : Ast.claim) : string =
+  let head =
+    Printf.sprintf
+      "%s %s %s"
+      (latex_of_expr c.Ast.lhs)
+      (latex_of_relop c.Ast.op)
+      (latex_of_expr c.Ast.rhs)
+  in
+  match c.Ast.hyps with
+  | [] -> head
+  | hyps ->
+    let hyp h =
+      Printf.sprintf
+        "%s %s %s"
+        (latex_of_expr h.Ast.hyp_lhs)
+        (latex_of_hyp_op h.Ast.hyp_op)
+        (latex_of_expr h.Ast.hyp_rhs)
+    in
+    head ^ " \\;\\text{ given }\\; " ^ String.concat ",\\; " (List.map hyp hyps)
+;;

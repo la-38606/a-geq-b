@@ -185,6 +185,48 @@ let json_certificate_file_round_trips () =
       (Checker.check_constrained_ok ~hypotheses target certificate)
 ;;
 
+let claim_latex_is_faithful_to_the_input () =
+  (* The preview LaTeX is purely syntactic: same structure as the input, with
+     products juxtaposed, division as a fraction, and `given` clauses kept. *)
+  let latex claim =
+    match Parser.parse claim with
+    | Error m -> Alcotest.failf "test claim does not parse: %s" m
+    | Ok c -> Pretty.latex_of_claim c
+  in
+  Alcotest.(check string)
+    "juxtaposed products"
+    "a^{2} + b^{2} \\ge 2ab"
+    (latex "a^2 + b^2 >= 2*a*b");
+  Alcotest.(check string)
+    "division is a fraction"
+    "\\frac{a^{2} + b^{2}}{2} \\ge ab"
+    (latex "(a^2 + b^2)/2 >= a*b");
+  Alcotest.(check string)
+    "given clause preserved"
+    "a^{2} + b^{2} \\ge 2 \\;\\text{ given }\\; ab = 1"
+    (latex "a^2 + b^2 >= 2 given a*b = 1")
+;;
+
+let json_carries_typesetting_fields () =
+  let r = Proof_result.prove "a^2 + b^2 >= 2 given a*b = 1" in
+  let json = Proof_result.to_json r in
+  let member k = Yojson.Safe.Util.member k json in
+  Alcotest.(check bool)
+    "claim_latex present"
+    true
+    (Yojson.Safe.Util.to_string_option (member "claim_latex") <> None);
+  let hyp = List.hd (Yojson.Safe.Util.to_list (member "hypotheses")) in
+  Alcotest.(check string)
+    "hypothesis latex"
+    "ab - 1 = 0"
+    (Yojson.Safe.Util.to_string (Yojson.Safe.Util.member "latex" hyp));
+  let terms =
+    member "certificate" |> Yojson.Safe.Util.member "latex_terms"
+    |> Yojson.Safe.Util.to_list
+  in
+  Alcotest.(check bool) "certificate latex_terms non-empty" true (terms <> [])
+;;
+
 let json_reports_status_and_trace () =
   let r = Proof_result.prove "a^2 + b^2 >= 2*a*b" in
   let json = Proof_result.to_json r in
@@ -225,6 +267,10 @@ let () =
     ; ( "json"
       , [ Alcotest.test_case "certificate file round-trips" `Quick
             json_certificate_file_round_trips
+        ; Alcotest.test_case "claim latex is syntactic" `Quick
+            claim_latex_is_faithful_to_the_input
+        ; Alcotest.test_case "typesetting fields present" `Quick
+            json_carries_typesetting_fields
         ; Alcotest.test_case "status and trace present" `Quick
             json_reports_status_and_trace
         ] )

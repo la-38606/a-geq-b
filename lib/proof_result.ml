@@ -29,6 +29,7 @@ type certificate =
 
 type t =
   { claim : string
+  ; claim_latex : string option
   ; status : status
   ; vars : string list
   ; hypotheses : Constrained.hypothesis list
@@ -122,6 +123,7 @@ let prove ?(sdp : sdp_solver option) ?clock (claim_text : string) : t =
   in
   let base =
     { claim = claim_text
+    ; claim_latex = None
     ; status = No_cert_found
     ; vars = []
     ; hypotheses = []
@@ -147,6 +149,7 @@ let prove ?(sdp : sdp_solver option) ?clock (claim_text : string) : t =
       | hs -> Printf.sprintf " with %d side conditions" (List.length hs)
     in
     push ~trusted:true ~ok:true "Parse" ("recognised an inequality" ^ side);
+    let base = { base with claim_latex = Some (Pretty.latex_of_claim claim) } in
     (match Normalizer.poly_of_claim claim with
      | exception Invalid_argument msg ->
        push ~trusted:true ~ok:false "Normalize" msg;
@@ -350,14 +353,17 @@ let to_json (r : t) : Yojson.Safe.t =
     `Assoc
       [ "kind", `String kind
       ; "text", `String (Constrained.string_of_hypothesis vars h)
+      ; "latex", `String (Constrained.latex_of_hypothesis vars h)
       ]
   in
+  let latex_list ts = `List (List.map (fun t -> `String t) ts) in
   let cert_json = function
     | Sos c ->
       `Assoc
         [ "kind", `String "sos"
         ; "text", `String (Certificate.to_string vars c)
         ; "latex", `String (Certificate.to_latex vars c)
+        ; "latex_terms", latex_list (Certificate.term_latexes vars c)
         ; "file", Certificate.to_json ~claim:(bare_claim r) ~vars c
         ]
     | Positivstellensatz c ->
@@ -365,6 +371,7 @@ let to_json (r : t) : Yojson.Safe.t =
         [ "kind", `String "positivstellensatz"
         ; "text", `String (Constrained.to_string vars c)
         ; "latex", `String (Constrained.to_latex vars c)
+        ; "latex_terms", latex_list (Constrained.part_latexes vars c)
         ; ( "file"
           , Constrained.to_json
               ~claim:(bare_claim r)
@@ -384,6 +391,7 @@ let to_json (r : t) : Yojson.Safe.t =
   in
   `Assoc
     [ "claim", `String r.claim
+    ; "claim_latex", opt (fun l -> `String l) r.claim_latex
     ; "status", `String (string_of_status r.status)
     ; "vars", `List (List.map (fun v -> `String v) vars)
     ; "hypotheses", `List (List.map hyp_json r.hypotheses)

@@ -163,6 +163,18 @@ let to_latex (vars : Pretty.vars) (cert : t) : string =
   | _ -> String.concat " + " parts
 ;;
 
+(** The summands of {!to_latex} individually (each base square, then each
+    product term), for renderers that break lines. *)
+let part_latexes (vars : Pretty.vars) (cert : t) : string list =
+  Certificate.term_latexes vars cert.base @ List.map (latex_of_product vars) cert.products
+;;
+
+(** ["g \ge 0"] or ["h = 0"], the LaTeX twin of {!string_of_hypothesis}. *)
+let latex_of_hypothesis (vars : Pretty.vars) : hypothesis -> string = function
+  | Nonneg g -> Pretty.latex_of_poly vars g ^ " \\ge 0"
+  | Zero h -> Pretty.latex_of_poly vars h ^ " = 0"
+;;
+
 (* --- JSON --------------------------------------------------------------- *)
 
 let term_json (vars : Pretty.vars) (t : Certificate.term) : Yojson.Safe.t =

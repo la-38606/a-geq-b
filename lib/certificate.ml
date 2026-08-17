@@ -51,6 +51,11 @@ let to_latex (vars : Pretty.vars) (cert : t) : string =
   | _ -> String.concat " + " (List.map (latex_of_term vars) cert)
 ;;
 
+(** The summands of {!to_latex} individually, for renderers that break lines. *)
+let term_latexes (vars : Pretty.vars) (cert : t) : string list =
+  List.map (latex_of_term vars) cert
+;;
+
 (* --- JSON --------------------------------------------------------------- *)
 
 (** Serialise to the JSON certificate format (see examples/).  [claim] and
