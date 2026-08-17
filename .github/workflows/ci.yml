@@ -1,0 +1,59 @@
+# Two jobs, split by dependency weight.
+#
+#   core:  OCaml build, the 139-case unit suite, and both corpus gates
+#          (exact certificate verification and the seeded numeric sampler,
+#          which are plain-stdlib Python).
+#   web:   the Playwright suite against the real a-geq-b-web server. Without
+#          the sdp/ virtualenv the SDP-routed test asserts the honest
+#          degraded trace, so no Python solver stack is installed here.
+#
+# Lean verification (lean/) is not run in CI: fetching Mathlib is a
+# multi-gigabyte, tens-of-minutes job out of proportion to a commit check.
+# The proof is pinned by lean-toolchain and lake-manifest.json and checked
+# locally with `lake build`.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: "5.3"
+      - run: opam install --yes zarith yojson alcotest
+      - run: opam exec -- dune build
+      - run: opam exec -- dune runtest
+      - name: corpus certificates through the trusted checker
+        run: python3 corpus/verify.py
+      - name: corpus numeric sanity sample (seeded)
+        run: python3 corpus/sanity_sample.py
+      - name: prover soundness over the corpus
+        run: python3 corpus/run_prover.py
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: "5.3"
+      - run: opam install --yes zarith yojson
+      - run: opam exec -- dune build
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/e2e/package-lock.json
+      - run: npm ci
+        working-directory: web/e2e
+      - run: npx playwright install --with-deps chromium
+        working-directory: web/e2e
+      - name: browser tests (server started by Playwright via dune exec)
+        run: opam exec -- npx playwright test
+        working-directory: web/e2e
