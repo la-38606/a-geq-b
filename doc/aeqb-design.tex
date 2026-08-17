@@ -739,7 +739,10 @@ to the loopback interface, serving a static page and two JSON endpoints
 \texttt{POST /api/lean}, the exported theorem of Section~\ref{sec:lean}). No
 web framework is involved, and no mathematics is duplicated in the browser: the
 page renders the record, so the project's dependency surface stays at the
-bignum and JSON libraries.
+bignum and JSON libraries. Presented expressions are typeset client-side
+(KaTeX, vendored) from LaTeX the core emits; the input preview uses a purely
+syntactic rendering of the parsed claim (a parse-only endpoint), so
+typesetting mirrors the input exactly and cannot alter meaning.
 
 The page presents an accepted certificate as the identity the checker verified,
 and every result offers the recorded proof path with its trust tags, which
@@ -794,9 +797,10 @@ the perfect square
 prompting its reclassification as an unconditional SOS identity.
 
 \smallskip
-The unit suites complement the corpus with $139$ cases: algebraic laws and
+The unit suites complement the corpus with $141$ cases: algebraic laws and
 canonicalisation, the parser (including denominator clearing and rejection of
-malformed input), the checker against adversarial certificates (negative
+malformed input), the syntactic LaTeX layer behind the typeset previews, the
+checker against adversarial certificates (negative
 weights, wrong expansions, missing and extra terms, terms scaling an undeclared
 hypothesis), prover soundness on false and non-SOS targets, Lean export, SDP
 rounding, and the structured result layer, including the test that a
