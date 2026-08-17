@@ -76,14 +76,15 @@ decomposition $p = \sum_i c_i\,q_i^2$ ($c_i \in \Q_{\ge 0}$,
 $q_i \in \Q[x_1,\dots,x_n]$), entirely in exact rational arithmetic. It is built
 in the LCF tradition: an \emph{untrusted} search engine proposes certificates,
 and a small, \emph{trusted} \emph{checker} is the sole authority on whether an
-inequality is proved---so a bug in the search can lose a proof, but never fake
+inequality is proved, so a bug in the search can lose a proof, but never fake
 one. This document builds up the mathematics from the ground (nonnegativity and
 the gap between it and the SOS property, the Gram-matrix and semidefinite
 reformulation, \emph{Newton-polytope basis reduction}, and exact rational
 extraction by $LDL^{\top}$) and then the system that implements it: the exact
-representations, the trusted checker, the search, denominator clearing, and a
+representations, the trusted checker, the search, denominator clearing, the
+structured result layer behind its command-line and local web interfaces, and a
 benchmark corpus with its soundness gate. It also covers the two directions the
-project has since grown in---\emph{constrained} inequalities through a fragment
+project has since grown in: \emph{constrained} inequalities through a fragment
 of the Positivstellensatz, and a checker whose soundness, together with the
 individual proofs it licenses, is machine-verified in Lean~4.
 \end{abstract}
@@ -101,7 +102,7 @@ has to give something up somewhere. The classical move is to ask for less:
 rather than test nonnegativity head-on, look for a \emph{certificate} of it in
 the shape of a sum of squares. Two things make that trade worth it. A sum of
 squares with nonnegative coefficients is nonnegative for a reason you can see at
-a glance---no oracle, no leap of faith---and the search for one collapses into
+a glance (no oracle, no leap of faith), and the search for one collapses into
 \emph{semidefinite programming}, a convex problem we know how to solve.
 
 A\,$\ge$\,B applies this idea to the concrete task of proving inequalities such
@@ -132,7 +133,7 @@ clears denominators; Section~\ref{sec:constrained} extends it to inequalities
 that hold only under side constraints; Section~\ref{sec:design} lays out the
 architecture and Section~\ref{sec:validation} the validation corpus; and
 Section~\ref{sec:lean} covers the formal verification, in Lean~4, of the
-checker---and of the individual proofs it licenses---before
+checker (and of the individual proofs it licenses) before
 Section~\ref{sec:roadmap} sketches what is left.
 
 % ===========================================================================
@@ -186,7 +187,7 @@ The polynomial
 \[
   M(x,y) \;=\; x^4 y^2 + x^2 y^4 + 1 - 3 x^2 y^2
 \]
-satisfies $M \ge 0$ on $\R^2$ (by the AM--GM inequality applied to $x^4y^2$,
+satisfies $M \ge 0$ on $\R^2$ (by the AM-GM inequality applied to $x^4y^2$,
 $x^2y^4$, and $1$), yet $M$ is \emph{not} a sum of squares. It is the classical
 witness that nonnegativity is strictly weaker than the SOS property.
 \end{example}
@@ -281,7 +282,8 @@ then gives $p \ge 0$.
 
 Proposition~\ref{prop:checker} is the entire trusted-computing-base argument: it
 depends only on exact rational arithmetic, exact polynomial multiplication and
-addition, and structural equality---nothing about how the certificate was found.
+addition, and structural equality, and on nothing about how the certificate was
+found.
 
 % ===========================================================================
 \section{The prover}
@@ -358,16 +360,16 @@ lattice points of the half-polytope, and it suffices to take the monomial basis
 \begin{equation}\label{eq:newton-basis}
   \z \;=\; \bigl\{\, \x^{\beta} : \beta \in \N^n,\ 2\beta \in \New(p) \,\bigr\}.
 \end{equation}
-By Theorem~\ref{thm:reznick} this basis is \emph{complete}---it contains a valid
-basis whenever $p$ is a sum of squares---and it is as small as that bound allows,
+By Theorem~\ref{thm:reznick} this basis is \emph{complete} (it contains a valid
+basis whenever $p$ is a sum of squares), and it is as small as that bound allows,
 which minimises the dimension of the Gram problem \eqref{eq:match}. It also
 specialises correctly: when $\deg p \le 2$, \eqref{eq:newton-basis} is exactly
 $\{1, x_1, \dots, x_n\}$, recovering the basis of Section~\ref{sec:deg2}.
 
 \begin{remark}[A cost-free necessary test]
 A vertex $\alpha$ of $\New(p)$ can be produced only by the square of the single
-basis monomial $\x^{\alpha/2}$---no cancellation is possible at an extreme
-point---so if $p$ is a sum of squares then \emph{every vertex of $\New(p)$ has
+basis monomial $\x^{\alpha/2}$ (no cancellation is possible at an extreme
+point), so if $p$ is a sum of squares then \emph{every vertex of $\New(p)$ has
 even coordinates and positive coefficient}. This rejects many non-SOS inputs
 before any semidefinite computation is attempted.
 \end{remark}
@@ -466,8 +468,8 @@ Then \eqref{eq:ldl} gives $D_1 = 1$, $L_{21} = -\tfrac12$, $D_2 = 1 - \tfrac14 =
 
 For $\deg p > 2$ the basis is the Newton-polytope basis \eqref{eq:newton-basis}
 of Section~\ref{sec:newton}. (The present implementation uses computationally
-cheaper subsets---single-variable ``square roots'' of $p$'s perfect-square
-monomials and, for homogeneous targets, all degree-$d$ monomials---which are
+cheaper subsets (single-variable ``square roots'' of $p$'s perfect-square
+monomials and, for homogeneous targets, all degree-$d$ monomials), which are
 sound but can be incomplete; adopting the full Newton basis is part of the
 prover's planned form, Section~\ref{sec:roadmap}.) With the basis fixed, two
 situations occur.
@@ -479,7 +481,7 @@ and $Q = \begin{psmallmatrix} 1 & -1 \\ -1 & 1\end{psmallmatrix}$, giving
 $(a^2 - b^2)^2$.
 
 \paragraph{Under-determined Gram (an SDP).} When a monomial is the product of
-several pairs---e.g.\ $a^2 b^2 = (a^2)(b^2) = (ab)(ab)$---the constraints
+several pairs (e.g.\ $a^2 b^2 = (a^2)(b^2) = (ab)(ab)$), the constraints
 \eqref{eq:match} leave free parameters, and one must \emph{choose} a PSD member
 of the affine family. This is a genuine semidefinite program, and the prover
 meets it two ways. Over up to two free entries it runs a bounded rational grid
@@ -534,7 +536,7 @@ Sum of squares proves an inequality \emph{everywhere} on $\R^n$. But a great
 many olympiad inequalities are not true everywhere; they hold only on a region,
 under hypotheses like $a,b,c \ge 0$, or on the surface $abc = 1$, or for the side
 lengths of a triangle. Off the feasible set such a target may well dip below
-zero, so a plain SOS decomposition cannot exist---and asking for one is the wrong
+zero, so a plain SOS decomposition cannot exist, and asking for one is the wrong
 question. What we want are certificates that are allowed to \emph{use} the
 hypotheses.
 
@@ -565,7 +567,7 @@ $\lambda_j(\x)\,h_j(\x) = \lambda_j(\x)\cdot 0 = 0$. The right-hand side of
 
 The two kinds of constraint play genuinely different roles, and the proof makes
 the difference visible. An inequality constraint contributes a nonnegative
-term---a square times something nonnegative---so its multiplier must itself be a
+term, a square times something nonnegative, so its multiplier must itself be a
 sum of squares. An equality constraint contributes \emph{nothing}: it vanishes on
 the feasible set, so its multiplier $\lambda_j$ is unconstrained, free to be any
 polynomial of any sign. That asymmetry is mirrored exactly in the checker.
@@ -577,8 +579,8 @@ The trusted core gains one function, \texttt{check\_constrained}, that verifies
 certificate whose terms are tagged by kind, and it confirms three things: every
 sum-of-squares part ($\sigma_0$ and each $\sigma_i$) has nonnegative
 coefficients; every polynomial being scaled really is one of the declared
-hypotheses \emph{of the matching kind}---a $g_i$ for an inequality term, an $h_j$
-for an equality term---compared by structural equality; and the expansion of the
+hypotheses \emph{of the matching kind} (a $g_i$ for an inequality term, an $h_j$
+for an equality term), compared by structural equality; and the expansion of the
 right-hand side equals $p$ exactly. The membership test is the subtle one, and it
 is not optional: without it a ``certificate'' could scale a polynomial that is
 negative somewhere and is not a stated assumption, and the whole thing would be
@@ -589,7 +591,7 @@ One further shape earns its own term. Schmüdgen's theorem reminds us that we
 sometimes need \emph{products} of the inequality constraints: from $a \ge 0$ and
 $b \ge 0$ we get $ab \ge 0$, but $ab$ is neither a hypothesis on its own nor a
 sum of squares. So the format also admits terms
-$\sigma \cdot g_{i_1} \cdots g_{i_r}$---a square times a product of declared
+$\sigma \cdot g_{i_1} \cdots g_{i_r}$: a square times a product of declared
 nonnegative hypotheses. The checker validates each factor against the hypothesis
 list, and $(\text{square}) \times (\text{product of nonnegatives}) \ge 0$ closes
 the argument.
@@ -597,7 +599,7 @@ the argument.
 \subsection{Finding the multipliers}
 
 Searching for the $\sigma_i$ and $\lambda_j$ is, in full generality, a
-semidefinite program again---now one Gram matrix per constraint. The prover does
+semidefinite program again, now with one Gram matrix per constraint. The prover does
 not solve that yet. Instead it tries three cheap, exact strategies in turn, each
 one re-checked by \texttt{check\_constrained} before anything is believed:
 
@@ -612,8 +614,8 @@ one re-checked by \texttt{check\_constrained} before anything is believed:
     multiplier may be \emph{any} polynomial, we can compute one directly by exact
     polynomial division: reduce $p$ modulo $h_j$ to get $p = \lambda_j h_j + r$,
     then try to prove the remainder $r$. Division is taken with respect to the
-    lexicographic monomial order---a genuine, multiplication-compatible term
-    order, so the reduction always terminates---and it turns $a^3 \ge b^3$ given
+    lexicographic monomial order (a genuine, multiplication-compatible term
+    order, so the reduction always terminates), and it turns $a^3 \ge b^3$ given
     $a = b$ into $a^3 - b^3 = (a^2 + ab + b^2)(a - b)$.
   \item \textbf{Products of hypotheses.} For each pair of nonnegative hypotheses
     $g_i, g_j$ and a constant $c$, subtract $c\,g_i g_j$ and prove the remainder.
@@ -624,7 +626,7 @@ These are deliberately modest. They miss anything that needs a truly non-constan
 square multiplier on an inequality, or a product of three or more hypotheses, and
 the general case is the same SDP story as the unconstrained prover
 (Section~\ref{sec:roadmap}). But they already reach a satisfying spread of
-constrained problems, and---like every other thing the search does---they cannot
+constrained problems, and, like every other thing the search does, they cannot
 be wrong: a proposed certificate is believed only once the trusted checker has
 re-derived the identity \eqref{eq:psatz} for itself.
 
@@ -655,14 +657,14 @@ proof. The defining invariant is the one-way valve at the checker: the status
 \node[box, right=of parse] (norm) {Normaliser\\{\scriptsize clear denom.}};
 \node[untrusted, right=of norm] (prov) {Prover\\{\scriptsize (untrusted)}};
 \node[trusted, right=of prov] (chk) {Checker\\{\scriptsize (trusted, exact)}};
-\node[box, right=of chk] (pretty) {Pretty\,/\,\LaTeX};
+\node[box, right=of chk] (pretty) {CLI\,/\,web UI};
 
 \draw[arr] ($(parse.west)+(-1.1,0)$) -- (parse.west)
   node[data, midway, above] {string};
 \draw[arr] (parse) -- (norm) node[data, midway, above] {AST};
 \draw[arr] (norm) -- (prov) node[data, midway, above] {$p$};
 \draw[arr] (prov) -- (chk) node[data, midway, above] {cand.\\cert.};
-\draw[arr] (chk) -- (pretty) node[data, midway, above] {status};
+\draw[arr] (chk) -- (pretty) node[data, midway, above] {result};
 
 \begin{scope}[on background layer]
   \node[draw=UntrustRed, densely dashed, rounded corners, inner sep=8pt,
@@ -686,22 +688,68 @@ keeps the trusted checker's dependencies minimal:
       \to \{\textsf{Ast},\ \textsf{Pretty}\} \\
     &\to \{\textsf{Parser},\ \textsf{Normalizer},\ \textsf{Certificate},\
       \textsf{Constrained}\}
-      \to \textsf{Checker} \to \textsf{Prover}.
+      \to \textsf{Checker} \to \textsf{Prover} \to \textsf{Sdp} \\
+    &\to \textsf{Proof\_result} \to \{\text{CLI},\ \text{web server}\}.
   \end{aligned}
 \]
 \textsf{Rational} is the sole point of contact with the bignum backend, which
 localises the exact-arithmetic dependency (and eases a future pure-rational or
 formally verified reimplementation).
 
-\subsection{Command-line surface}
+\subsection{Structured results}
+\label{sec:results}
 
-The tool exposes \texttt{prove "<inequality>"} (parse, clear denominators, and
-search---side conditions may be attached with \texttt{given}, e.g.\
-\texttt{a*b >= 0 given a >= 0, b >= 0}); \texttt{check <cert.json>} (load and
-verify a certificate, plain or constrained); and \texttt{lean "<inequality>"}
-(prove, then emit a machine-checkable Lean proof, Section~\ref{sec:lean}). Every
-run reports one of four statuses with matching exit codes: \textsc{Proved},
-\textsc{No\_Cert\_Found}, \textsc{Invalid\_Input}, \textsc{Check\_Failed}.
+Everything downstream of the checker consumes one record. \textsf{Proof\_result}
+runs the pipeline of Figure~\ref{fig:pipeline} on a claim string and returns the
+run as data: the variable context and hypotheses, the reduced target, the final
+status, the accepted certificate (if any) together with the search route that
+produced it, warnings when the hypotheses are provably contradictory (so a
+``proof'' would hold only vacuously), and a chronological trace of the stages
+that actually ran, each tagged trusted or untrusted and, on request, timed. The
+status \textsc{Proved} is assigned in exactly one place, after
+\texttt{check\_sos} or \texttt{check\_constrained} accepts, so every interface
+inherits the trust boundary instead of re-implementing it; a front end cannot
+report a proof the record does not contain.
+
+The record also fixes the story told about the numerical route. The hook that
+reaches the external solver is a parameter: a caller may supply a function that
+solves the emitted Gram program numerically, and its output re-enters the
+pipeline as a candidate like any other, through rational reconstruction and the
+exact check. The trace then records the miss of the exact search, the solver's
+reported status, and the reconstruction, so ``how was this proved?'' has a
+faithful answer even when floating point was involved in the middle.
+
+\subsection{The command line}
+
+The CLI exposes \texttt{prove "<inequality>"} (side conditions attach with
+\texttt{given}, e.g.\ \texttt{a*b >= 0 given a >= 0, b >= 0});
+\texttt{check <cert.json>} (verify a stored certificate, plain or constrained);
+\texttt{lean "<inequality>"} (prove, then emit a machine-checkable Lean proof,
+Section~\ref{sec:lean}); and the \texttt{sdp-emit}/\texttt{sdp-check} pair
+driven by the numerical pipeline. Every run reports one of four statuses with
+matching exit codes: \textsc{Proved}, \textsc{No\_Cert\_Found},
+\textsc{Invalid\_Input}, \textsc{Check\_Failed}.
+
+\subsection{The local web interface}
+
+\texttt{a-geq-b-web} serves the same prover in a browser. It is deliberately
+small: a hand-written HTTP/1.1 subset over OCaml's \texttt{Unix} sockets, bound
+to the loopback interface, serving a static page and two JSON endpoints
+(\texttt{POST /api/prove}, the serialised \textsf{Proof\_result};
+\texttt{POST /api/lean}, the exported theorem of Section~\ref{sec:lean}). No
+web framework is involved, and no mathematics is duplicated in the browser: the
+page renders the record, so the project's dependency surface stays at the
+bignum and JSON libraries.
+
+The page presents an accepted certificate as the identity the checker verified,
+and every result offers the recorded proof path with its trust tags, which
+makes the boundary of Figure~\ref{fig:pipeline} visible on each proof rather
+than only in documentation. When the Python solver's virtualenv is present, the
+server installs the SDP hook of Section~\ref{sec:results} and browser proofs
+of harder targets go through the numerical route live; when it is absent, the
+trace says so. Failure states are worded to match the semantics:
+\textsc{No\_Cert\_Found} is always accompanied by the statement that it is not
+a disproof.
 
 % ===========================================================================
 \section{Validation}
@@ -712,8 +760,8 @@ The proofs above argue that the system is sound; a benchmark corpus is how I kee
 myself honest that it is also \emph{useful}, and stays that way as the code
 changes. It holds $119$ inequalities, each tagged with a category and the status
 the system ought to return (Table~\ref{tab:corpus}), drawn from classical results
-(AM--GM, Cauchy--Schwarz, Schur), named competition problems (IMO, APMO, and
-several national olympiads), and a standard olympiad reference---together with a
+(AM-GM, Cauchy-Schwarz, Schur), named competition problems (IMO, APMO, and
+several national olympiads), and a standard olympiad reference, together with a
 handful of deliberate soundness traps.
 
 \begin{table}[h]
@@ -724,7 +772,7 @@ Category & Meaning & Expected status \\
 \midrule
 \texttt{in\_scope\_sos} & nonnegative on $\R^n$, SOS over $\Q$ & \textsc{Proved} \\
 \texttt{out\_of\_scope\_v1} & true only under side constraints & \textsc{No\_Cert\_Found} \\
-\texttt{not\_sos} & nonnegative but not SOS (Motzkin, Choi--Lam) & \textsc{No\_Cert\_Found} \\
+\texttt{not\_sos} & nonnegative but not SOS (Motzkin, Choi-Lam) & \textsc{No\_Cert\_Found} \\
 \texttt{false} & deliberately false & \textsc{No\_Cert\_Found} \\
 \bottomrule
 \end{tabular}
@@ -736,7 +784,7 @@ Three independent harnesses guard the corpus: one runs every SOS certificate
 through the trusted checker; one is an \emph{independent} numeric oracle that
 random-samples each claim on its domain (implemented in a different language, so
 an error in the core cannot mask a bad entry); and one enforces the
-\emph{soundness gate}---no \texttt{false}, constrained, or \texttt{not\_sos}
+\emph{soundness gate}: no \texttt{false}, constrained, or \texttt{not\_sos}
 entry may ever be proved. The gate is not decorative: it flagged a
 problem originally recorded as requiring positivity, whose difference is in fact
 the perfect square
@@ -745,6 +793,21 @@ the perfect square
 \]
 prompting its reclassification as an unconditional SOS identity.
 
+\smallskip
+The unit suites complement the corpus with $139$ cases: algebraic laws and
+canonicalisation, the parser (including denominator clearing and rejection of
+malformed input), the checker against adversarial certificates (negative
+weights, wrong expansions, missing and extra terms, terms scaling an undeclared
+hypothesis), prover soundness on false and non-SOS targets, Lean export, SDP
+rounding, and the structured result layer, including the test that a
+numerically wrong Gram matrix supplied through the SDP hook ends in
+\textsc{No\_Cert\_Found}, never \textsc{Proved}. A browser suite (Playwright)
+then drives the web interface against the real server and asserts the same
+semantics at the surface: what may be labelled \textsc{Proved}, that
+\textsc{No\_Cert\_Found} is never presented as falsity, that the rendered
+proof path matches the route the record reports, and that the Lean view never
+claims a kernel check that did not happen.
+
 % ===========================================================================
 \section{Formal verification in Lean 4}
 \label{sec:lean}
@@ -752,7 +815,7 @@ prompting its reclassification as an unconditional SOS identity.
 
 Proposition~\ref{prop:checker} is the hinge the entire design turns on, so it is
 the one claim most worth putting beyond doubt. Two mechanisations in Lean~4, both
-complete, now do that---from two different angles.
+complete, now do that, from two different angles.
 
 \subsection{A verified checker}
 
@@ -768,7 +831,7 @@ This is Proposition~\ref{prop:checker}, word for word, and its proof is the
 formal shadow of Theorem~\ref{thm:soundness}: once \texttt{checkSOS} has forced
 the identity $p = \sum_i c_i q_i^2$, nonnegativity falls straight out of
 \texttt{sq\_nonneg}, \texttt{mul\_nonneg}, and \texttt{List.sum\_nonneg}. The
-proof is complete and axiom-clean---\texttt{\#print axioms} reports only the
+proof is complete and axiom-clean: \texttt{\#print axioms} reports only the
 three standard Mathlib axioms (\texttt{propext}, \texttt{Classical.choice},
 \texttt{Quot.sound}) and not a single \texttt{sorry}. And because Lean~4 compiles
 to native code, this is not merely a proof \emph{about} a checker; it is a
@@ -780,7 +843,7 @@ The second goes further and makes each individual \emph{proof} machine-checked.
 The command \texttt{a-geq-b lean "<inequality>"} runs the search, re-checks the
 certificate, and emits a self-contained Lean file: a theorem $0 \le p$ over real
 variables whose proof rewrites $p$ into its sum-of-squares form with
-\texttt{ring}---the identity the checker has already verified---and then closes
+\texttt{ring} (the identity the checker has already verified) and then closes
 it with \texttt{positivity}. Feeding that file to Lean has its kernel certify the
 result, so an $A \ge B$ proof becomes a theorem in a general-purpose proof
 assistant. It is untrusted output in the best possible sense: a bogus certificate
@@ -812,7 +875,7 @@ verifies as usual. The numerical code is quarantined cleanly behind the trust
 boundary: a wrong solution rounds to a matrix that is not PSD, or to a rejected
 certificate, never a false proof. With this path the prover closes all $63$
 in-scope sum-of-squares targets of the corpus, while the not-SOS traps (Motzkin,
-Choi--Lam) and the false claims stay unproved.
+Choi-Lam) and the false claims stay unproved.
 
 \smallskip
 \noindent What remains is optional refinement. The constrained search of
@@ -822,11 +885,6 @@ problem, as is a product of three or more hypotheses. Building the basis by the
 Newton-polytope reduction \eqref{eq:newton-basis} rather than the full
 degree-$d$ set would shrink the programs further. Both improve a prover that
 already works rather than fill a gap.
-
-\smallskip
-\noindent The interface is deliberately the command line: \texttt{prove},
-\texttt{check}, \texttt{lean}, and the \texttt{sdp} pipeline print a structured,
-aligned report.
 
 The system now realises a principled three-language architecture: exact symbolic
 computation and the trusted core in a typed functional language (OCaml),
@@ -841,22 +899,22 @@ of them has to be believed.
 % ===========================================================================
 \begin{enumerate}[label={[\arabic*]},leftmargin=2.2em]
   \item D.~Hilbert. \emph{Über die Darstellung definiter Formen als Summe von
-    Formenquadraten.} Math.\ Ann.\ \textbf{32} (1888), 342--350.
+    Formenquadraten.} Math.\ Ann.\ \textbf{32} (1888), 342-350.
   \item T.~S.~Motzkin. \emph{The arithmetic-geometric inequality.} In
-    \emph{Inequalities} (1967), 205--224.
+    \emph{Inequalities} (1967), 205-224.
   \item M.~D.~Choi, T.~Y.~Lam. \emph{Extremal positive semidefinite forms.}
-    Math.\ Ann.\ \textbf{231} (1977), 1--18.
+    Math.\ Ann.\ \textbf{231} (1977), 1-18.
   \item B.~Reznick. \emph{Extremal PSD forms with few terms.} Duke Math.\ J.\
-    \textbf{45} (1978), 363--374.
+    \textbf{45} (1978), 363-374.
   \item V.~Powers, T.~Wörmann. \emph{An algorithm for sums of squares of real
-    polynomials.} J.\ Pure Appl.\ Algebra \textbf{127} (1998), 99--104.
+    polynomials.} J.\ Pure Appl.\ Algebra \textbf{127} (1998), 99-104.
   \item P.~A.~Parrilo. \emph{Semidefinite programming relaxations for
-    semialgebraic problems.} Math.\ Program.\ \textbf{96} (2003), 293--320.
+    semialgebraic problems.} Math.\ Program.\ \textbf{96} (2003), 293-320.
   \item H.~Peyrl, P.~A.~Parrilo. \emph{Computing sum of squares decompositions
     with rational coefficients.} Theoret.\ Comput.\ Sci.\ \textbf{409} (2008),
-    269--281.
+    269-281.
   \item J.~B.~Lasserre. \emph{Global optimization with polynomials and the
-    problem of moments.} SIAM J.\ Optim.\ \textbf{11} (2001), 796--817.
+    problem of moments.} SIAM J.\ Optim.\ \textbf{11} (2001), 796-817.
   \item R.~B.~Manfrino, J.~A.~G.~Ortega, R.~V.~Delgado. \emph{Inequalities: A
     Mathematical Olympiad Approach.} Birkhäuser, 2009.
 \end{enumerate}
