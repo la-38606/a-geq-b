@@ -23,7 +23,11 @@ proof; it cannot invent one.
 
 ## Demo
 
-[![45-second walkthrough](docs/demo/aeqb-demo-preview.gif)](docs/demo/aeqb-demo.mp4)
+
+
+https://github.com/user-attachments/assets/2b3d3117-61cb-48fc-aabf-5e7081bc2c03
+
+
 
 **[Full walkthrough (mp4, 45 s)](docs/demo/aeqb-demo.mp4):** prove an
 inequality, read the typeset certificate, follow the proof path with its
