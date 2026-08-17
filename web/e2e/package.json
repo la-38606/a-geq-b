@@ -1,0 +1,12 @@
+{
+  "name": "a-geq-b-e2e",
+  "private": true,
+  "description": "Browser tests and demo recording for the A>=B web interface",
+  "scripts": {
+    "test": "playwright test",
+    "demo": "playwright test --config=demo.config.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1"
+  }
+}
