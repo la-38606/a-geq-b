@@ -58,11 +58,17 @@ Statuses (also the exit codes): `PROVED` (0), `NO_CERT_FOUND` (2),
 
 ## Demo
 
-`./scripts/record-demo.sh` records a reproducible 60-second walkthrough of
-the web interface (deterministic Playwright script driving the live
-application, including the numerical SDP route) into `demo/aeqb-demo.webm`.
-The video is not committed; publish it via a GitHub release if you want a
-hosted copy.
+<!-- Embed: edit this file on GitHub and drag demo/aeqb-demo.mp4 onto the
+     line below; GitHub uploads it and inserts an inline player. -->
+
+A 60-second walkthrough of the web interface: a classic inequality proved
+with its certificate, the proof path with its trust tags, the architecture
+tour, a constrained proof, the live numerical SDP route, and Lean export.
+
+The recording is reproducible: `./scripts/record-demo.sh` drives the real
+application with a deterministic Playwright script (nothing mocked) and
+writes `demo/aeqb-demo.webm`, plus `demo/aeqb-demo.mp4` when ffmpeg is
+available. The video files stay out of git.
 
 ## Why certificates
 
