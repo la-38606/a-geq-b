@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>How A ≥ B works</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext x='8' y='13' font-size='14' text-anchor='middle' font-family='Georgia,serif'%3E%E2%89%A5%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="/vendor/katex/katex.min.css">
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -39,7 +40,7 @@
     <li>
       <div class="stage">Parse</div>
       <div class="stage-what">
-        <span class="math-inline"><var>a</var><sup>2</sup> + <var>b</var><sup>2</sup> ≥ 2·<var>a</var>·<var>b</var></span>:
+        <span data-latex="a^{2} + b^{2} \ge 2ab"></span>:
         the claim becomes a syntax tree. Assumptions after
         <code>given</code> become hypotheses.
       </div>
@@ -48,15 +49,15 @@
     <li>
       <div class="stage">Normalize</div>
       <div class="stage-what">
-        <span class="math-inline"><var>a</var><sup>2</sup> − 2·<var>a</var>·<var>b</var> + <var>b</var><sup>2</sup> ≥ 0</span>:
+        <span data-latex="a^{2} - 2ab + b^{2} \ge 0"></span>:
         the claim reduces to a single polynomial target
-        <span class="math-inline"><var>p</var> = <var>A</var> − <var>B</var> ≥ 0</span>,
+        <span data-latex="p = A - B \ge 0"></span>,
         with denominators cleared.
       </div>
     </li>
     <li class="arrow">↓</li>
     <li>
-      <div class="stage tagged">Search <span class="badge badge-search">search</span></div>
+      <div class="stage tagged">Search <span class="tag tag-search">search</span></div>
       <div class="stage-what">
         The prover looks for a way to write <var>p</var> as a sum of squares
         with nonnegative rational weights: a Gram matrix over a monomial
@@ -69,19 +70,20 @@
     <li>
       <div class="stage">Candidate</div>
       <div class="stage-what">
-        <span class="math-inline">(<var>a</var> − <var>b</var>)<sup>2</sup></span>:
+        <span data-latex="\left(a - b\right)^{2}"></span>:
         an explicit claimed identity, nothing more. It carries no authority
         yet, whatever search produced it.
       </div>
     </li>
     <li class="arrow">↓</li>
     <li>
-      <div class="stage tagged">Exact check <span class="badge badge-trusted">trusted</span></div>
+      <div class="stage tagged">Exact check <span class="tag tag-trusted">trusted</span></div>
       <div class="stage-what">
         The checker expands the certificate with exact rational arithmetic and
         compares normal forms: does
-        <span class="math-inline">1·(<var>a</var> − <var>b</var>)<sup>2</sup></span>
-        equal the target, term for term, with every weight ≥ 0? No floats, no
+        <span data-latex="1\cdot\left(a - b\right)^{2}"></span>
+        equal the target, term for term, with every weight
+        <span data-latex="\ge 0"></span>? No floats, no
         tolerance, no “close enough”.
       </div>
     </li>
@@ -179,7 +181,7 @@
         boundary held.</dd>
   </dl>
 
-  <h2>The Lean layer</h2>
+  <h2 id="lean">The Lean layer</h2>
   <p>Two separate things are machine-checked in Lean 4 / Mathlib, and it is
      worth being precise about which is which:</p>
   <ul class="lean-facts">
@@ -263,10 +265,8 @@
     </table>
 
     <h3>The canonical form</h3>
-    <p class="math-inline canon">
-      <var>x</var><sup>2</sup><var>y</var> → [2,1] &emsp;
-      <var>x</var><sup>2</sup> → [2] &emsp;
-      1 → [ ]
+    <p class="canon">
+      <span data-latex="x^{2}y \mapsto [2,1], \qquad x^{2} \mapsto [2], \qquad 1 \mapsto [\;]"></span>
     </p>
     <p>
       Monomials are exponent vectors with trailing zeros stripped, so
@@ -284,6 +284,9 @@
     any result shows this pipeline as it actually ran.
   </p>
 </main>
+
+<script src="/vendor/katex/katex.min.js"></script>
+<script src="/math.js"></script>
 
 <footer>
   Proof search may be heuristic or numerical; only the exact checker can say

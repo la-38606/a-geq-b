@@ -1,61 +1,12 @@
 // A>=B prover page. All mathematics happens on the server (the same OCaml
 // library the CLI uses); this file renders the Proof_result JSON and never
-// decides anything about a proof.
+// decides anything about a proof. Typesetting is KaTeX over the LaTeX strings
+// the core emits (see math.js); the exact plain-text forms stay available
+// under "Certificate details".
 
 'use strict';
 
 const $ = (id) => document.getElementById(id);
-
-// --- presentational math rendering ---------------------------------------
-// Turns the server's exact plain-text form ("a^2 - 2*a*b + b^2 >= 0") into
-// display HTML: superscripts, center dots, real minus/relation glyphs, italic
-// variables. Cosmetic only -- the exact strings remain available under
-// "Certificate details".
-function mathHTML(text) {
-  const escSpan = (s) =>
-    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  let out = '';
-  let i = 0;
-  const n = text.length;
-  while (i < n) {
-    const c = text[i];
-    if (/[A-Za-z_]/.test(c)) {
-      let j = i + 1;
-      while (j < n && /[A-Za-z0-9_]/.test(text[j])) j++;
-      const word = text.slice(i, j);
-      out += word === 'given'
-        ? '<span class="kw">given</span>'
-        : '<var>' + escSpan(word) + '</var>';
-      i = j;
-    } else if (c === '^') {
-      let j = i + 1;
-      while (j < n && /[0-9]/.test(text[j])) j++;
-      if (j > i + 1) {
-        out += '<sup>' + text.slice(i + 1, j) + '</sup>';
-        i = j;
-      } else {
-        out += '^';
-        i++;
-      }
-    } else if (text.startsWith('>=', i)) {
-      out += ' ≥ ';
-      i += 2;
-    } else if (text.startsWith('<=', i)) {
-      out += ' ≤ ';
-      i += 2;
-    } else if (c === '*') {
-      out += '·';
-      i++;
-    } else if (c === '-') {
-      out += '−';
-      i++;
-    } else {
-      out += escSpan(c);
-      i++;
-    }
-  }
-  return out.replace(/  +/g, ' ');
-}
 
 // --- result rendering -----------------------------------------------------
 
@@ -87,39 +38,59 @@ function statusNote(d) {
 
 function certNote(d) {
   if (d.certificate.kind === 'sos') {
-    return 'Each summand is a nonnegative rational multiple of a square, so the ' +
-           'right-hand side is nonnegative for every real assignment. The exact ' +
-           'checker verified that it equals the target, term for term.';
+    return 'The right-hand side is a sum of squares with nonnegative rational ' +
+           'coefficients; the exact checker verified that it equals the target.';
   }
-  return 'On the domain cut out by the assumptions: every square is nonnegative, ' +
-         'every multiplier of a nonnegative hypothesis is a sum of squares, and ' +
-         'multiples of vanishing hypotheses are zero, so the right-hand side is ' +
-         'nonnegative there. The exact checker verified the identity and that ' +
-         'every scaled polynomial is a declared hypothesis.';
+  return 'On the stated domain every term on the right is nonnegative or zero; ' +
+         'the exact checker verified the identity and that each scaled ' +
+         'polynomial is a declared assumption.';
 }
 
-function renderTrace(steps) {
+// The certificate as one display equation, target = sum of terms. Long
+// identities break into an aligned block, one summand per row, so nothing
+// overflows or shrinks.
+function certificateLatex(d) {
+  const target = d.target.latex;
+  const terms = d.certificate.latex_terms;
+  const oneLine = target + ' = ' + terms.join(' + ');
+  if (oneLine.length <= 120 || terms.length === 1) return oneLine;
+  return '\\begin{aligned}' +
+    target + ' ={}& ' + terms[0] +
+    terms.slice(1).map((t) => ' \\\\ &+ ' + t).join('') +
+    '\\end{aligned}';
+}
+
+function renderTrace(d) {
   const list = $('trace-list');
   list.replaceChildren();
-  for (const s of steps) {
+  for (const s of d.trace) {
     const li = document.createElement('li');
-    const isErr = !s.ok && (s.trusted || lastResult.status === 'INVALID_INPUT');
+    const isErr = !s.ok && (s.trusted || d.status === 'INVALID_INPUT');
     li.className = s.ok ? '' : (isErr ? 'err' : 'miss');
-    const mark = s.ok ? '✓' : '✕';
-    const badge = s.trusted
-      ? '<span class="badge badge-trusted">trusted</span>'
-      : '<span class="badge badge-search">search</span>';
+    const tag = s.trusted
+      ? '<span class="tag tag-trusted">trusted</span>'
+      : '<span class="tag tag-search">search</span>';
     const ms = s.ms == null ? '' : s.ms < 0.05 ? '&lt;0.1 ms' : s.ms.toFixed(1) + ' ms';
     li.innerHTML =
-      '<span class="mark">' + mark + '</span>' +
+      '<span class="mark">' + (s.ok ? '✓' : '✕') + '</span>' +
       '<span class="step-title"></span>' +
       '<span class="step-ms">' + ms + '</span>' +
       '<span class="step-detail"></span>';
     li.querySelector('.step-title').textContent = s.title;
-    li.querySelector('.step-title').insertAdjacentHTML('beforeend', badge);
-    li.querySelector('.step-detail').textContent = s.detail;
+    li.querySelector('.step-title').insertAdjacentHTML('beforeend', tag);
+    const detail = li.querySelector('.step-detail');
+    // Typeset the two stages whose content is mathematics; the rest is prose.
+    if (s.title === 'Normalize' && s.ok && d.target) {
+      tex(detail, d.target.latex + ' \\ge 0');
+    } else if (s.title === 'Side conditions' && s.ok && d.hypotheses.length > 0) {
+      tex(detail, d.hypotheses.map((h) => h.latex).join(',\\quad '));
+    } else {
+      detail.textContent = s.detail;
+    }
     list.appendChild(li);
   }
+  $('sdp-note').hidden =
+    !d.trace.some((s) => s.title === 'Numerical SDP' && s.ok);
 }
 
 function hidePanels() {
@@ -133,6 +104,10 @@ function renderResult(d) {
   lastResult = d;
   $('result').hidden = false;
   hidePanels();
+  // Let the result take the page: fold the example list away (it reopens on
+  // demand) and drop the input preview, which the Claim block now repeats.
+  $('examples').open = false;
+  $('preview').hidden = true;
 
   const st = STATUS[d.status] || STATUS.CHECK_FAILED;
   const banner = $('status-banner');
@@ -150,29 +125,37 @@ function renderResult(d) {
     warnings.appendChild(p);
   }
 
-  $('claim-block').hidden = false;
-  $('claim-echo').innerHTML = mathHTML(d.claim);
+  $('claim-block').hidden = !d.claim_latex;
+  if (d.claim_latex) tex($('claim-echo'), d.claim_latex, true);
 
   const hyps = d.hypotheses || [];
   $('assuming-block').hidden = hyps.length === 0;
   if (hyps.length > 0) {
-    $('assuming').innerHTML = hyps.map((h) => mathHTML(h.text)).join('<br>');
+    const box = $('assuming');
+    box.replaceChildren();
+    for (const h of hyps) {
+      const line = document.createElement('div');
+      tex(line, h.latex);
+      box.appendChild(line);
+    }
   }
 
   $('target-block').hidden = !d.target;
   if (d.target) {
-    $('target').innerHTML =
-      mathHTML(d.target.text + ' >= 0') +
-      (hyps.length > 0 ? ' <span class="domain-note">(on the domain above)</span>' : '');
+    tex($('target'), d.target.latex + ' \\ge 0');
+    $('target-domain').hidden = hyps.length === 0;
   }
 
   const proved = d.status === 'PROVED' && d.certificate;
   $('cert-block').hidden = !proved;
   if (proved) {
-    $('certificate').innerHTML =
-      '<div>' + mathHTML(d.target.text) + '</div>' +
-      '<div class="cert-rhs">= ' + mathHTML(d.certificate.text) + '</div>';
+    tex($('certificate'), certificateLatex(d), true);
     $('cert-note').textContent = certNote(d);
+    const constrained = d.certificate.kind === 'positivstellensatz';
+    $('domain-facts').hidden = !constrained;
+    if (constrained) {
+      tex($('domain-facts-math'), hyps.map((h) => h.latex).join(',\\qquad '));
+    }
   }
 
   $('actions').hidden = false;
@@ -182,7 +165,7 @@ function renderResult(d) {
   $('lean-button').hidden =
     !(proved && d.certificate.kind === 'sos' && hyps.length === 0);
 
-  if (d.trace && d.trace.length > 0) renderTrace(d.trace);
+  if (d.trace && d.trace.length > 0) renderTrace(d);
   if (proved) {
     $('latex-out').textContent = d.target.latex + ' = ' + d.certificate.latex;
     $('json-out').textContent = JSON.stringify(d.certificate.file, null, 2);
@@ -202,6 +185,39 @@ function renderServerError(msg) {
   for (const id of ['claim-block', 'assuming-block', 'target-block', 'cert-block',
                     'actions']) {
     $(id).hidden = true;
+  }
+}
+
+// --- live preview ---------------------------------------------------------
+// Parsed by the backend (the only parser there is); rendered when it answers.
+// A claim that does not parse yet simply shows no preview.
+
+let previewTimer = null;
+let previewSeq = 0;
+
+async function updatePreview() {
+  const claim = $('claim-input').value.trim();
+  if (claim === '') {
+    $('preview').hidden = true;
+    return;
+  }
+  const seq = ++previewSeq;
+  try {
+    const res = await fetch('/api/preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ claim }),
+    });
+    const d = await res.json();
+    if (seq !== previewSeq) return; // a newer keystroke superseded this reply
+    if (d.latex) {
+      tex($('preview-math'), d.latex, true);
+      $('preview').hidden = false;
+    } else {
+      $('preview').hidden = true;
+    }
+  } catch {
+    $('preview').hidden = true;
   }
 }
 
@@ -260,24 +276,41 @@ async function exportLean() {
 }
 
 // --- examples -------------------------------------------------------------
+// A compact list: name on the left, the typeset claim on the right. The LaTeX
+// comes from /api/preview so it is exactly what the parser sees.
 
 async function loadExamples() {
   try {
     const res = await fetch('/examples.json');
     if (!res.ok) return;
     const data = await res.json();
-    const chips = $('example-chips');
+    const list = $('example-list');
     for (const ex of data.examples) {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'chip';
-      b.textContent = ex.label;
-      b.title = ex.claim + (ex.note ? ' (' + ex.note + ')' : '');
-      b.addEventListener('click', () => {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'example-row';
+      row.title = ex.note || '';
+      const name = document.createElement('span');
+      name.className = 'example-name';
+      name.textContent = ex.label;
+      const math = document.createElement('span');
+      math.className = 'example-claim';
+      math.textContent = ex.claim; // fallback until the preview answers
+      row.append(name, math);
+      row.addEventListener('click', () => {
         $('claim-input').value = ex.claim;
+        updatePreview();
         $('claim-input').focus();
       });
-      chips.appendChild(b);
+      list.appendChild(row);
+      fetch('/api/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ claim: ex.claim }),
+      })
+        .then((r) => r.json())
+        .then((d) => { if (d.latex) tex(math, d.latex); })
+        .catch(() => {});
     }
     $('examples').hidden = false;
   } catch {
@@ -301,6 +334,11 @@ $('prove-form').addEventListener('submit', (e) => {
   e.preventDefault();
   const claim = $('claim-input').value.trim();
   if (claim !== '') prove(claim);
+});
+
+$('claim-input').addEventListener('input', () => {
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(updatePreview, 250);
 });
 
 togglePanel('trace-toggle', 'trace-panel');

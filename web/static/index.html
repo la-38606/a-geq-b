@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>A ≥ B: certificate prover</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext x='8' y='13' font-size='14' text-anchor='middle' font-family='Georgia,serif'%3E%E2%89%A5%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="/vendor/katex/katex.min.css">
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -40,10 +41,14 @@
     <code>a^2 + b^2 &gt;= 2 given a*b = 1</code>.
   </p>
 
-  <div id="examples" class="examples" hidden>
-    <span class="examples-label">Examples</span>
-    <div class="chips" id="example-chips"></div>
+  <div id="preview" class="preview" hidden aria-live="polite">
+    <span id="preview-math"></span>
   </div>
+
+  <details id="examples" hidden open>
+    <summary class="label">Examples</summary>
+    <div id="example-list" class="example-list"></div>
+  </details>
 
   <section id="result" hidden aria-live="polite">
     <div id="status-banner" class="status"></div>
@@ -66,22 +71,29 @@
 
     <section class="block" id="claim-block">
       <div class="label">Claim</div>
-      <div class="math" id="claim-echo"></div>
+      <div class="math-display" id="claim-echo"></div>
     </section>
 
     <section class="block" id="assuming-block" hidden>
       <div class="label">Assuming</div>
-      <div class="math" id="assuming"></div>
+      <div class="math-display" id="assuming"></div>
     </section>
 
     <section class="block" id="target-block" hidden>
       <div class="label">Reduces to</div>
-      <div class="math" id="target"></div>
+      <div class="math-display">
+        <span id="target"></span>
+        <span id="target-domain" class="domain-note" hidden>(on the domain above)</span>
+      </div>
     </section>
 
     <section class="block" id="cert-block" hidden>
       <div class="label">Certificate</div>
-      <div class="math identity" id="certificate"></div>
+      <div class="math-display" id="certificate"></div>
+      <div class="domain-facts" id="domain-facts" hidden>
+        <span class="domain-facts-label">On the domain:</span>
+        <span id="domain-facts-math"></span>
+      </div>
       <p class="note" id="cert-note"></p>
     </section>
 
@@ -95,10 +107,14 @@
       <div class="label">Proof path</div>
       <ol id="trace-list" class="trace"></ol>
       <p class="note">
-        Stages tagged <span class="badge badge-search">search</span> are
+        Stages tagged <span class="tag tag-search">search</span> are
         untrusted: they may fail, or propose a bad candidate. Only the
-        <span class="badge badge-trusted">trusted</span> exact check accepts a
+        <span class="tag tag-trusted">trusted</span> exact check accepts a
         certificate, so a bug in search can lose a proof but never invent one.
+      </p>
+      <p class="note" id="sdp-note" hidden>
+        The floating-point matrix from the numerical solver only guides the
+        search; the certificate the checker accepted is exact.
       </p>
     </section>
 
@@ -126,6 +142,9 @@
         <button type="button" class="copy" data-copy="lean-out">Copy</button>
       </div>
       <p class="note" id="lean-note"></p>
+      <p class="note">
+        <a href="/how-it-works#lean">What does Lean verify?</a>
+      </p>
     </section>
   </section>
 </main>
@@ -135,6 +154,8 @@
   PROVED. <a href="/how-it-works">How A≥B works</a>
 </footer>
 
+<script src="/vendor/katex/katex.min.js"></script>
+<script src="/math.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>
