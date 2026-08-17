@@ -121,22 +121,53 @@ let json_error (msg : string) : string =
 
 (* --- static files ------------------------------------------------------- *)
 
-(* Exact-path whitelist: nothing outside this table is ever read, so there is
-   no path to traverse. Files are re-read per request (local tool; editing the
-   UI and refreshing should just work). *)
+(* Exact-path whitelist: nothing outside this table (or the vendor rule below)
+   is ever read, so there is no path to traverse. Files are re-read per request
+   (local tool; editing the UI and refreshing should just work). *)
 let static_routes : (string * string * string) list =
   [ "/", "index.html", "text/html; charset=utf-8"
   ; "/how-it-works", "how-it-works.html", "text/html; charset=utf-8"
   ; "/style.css", "style.css", "text/css; charset=utf-8"
   ; "/app.js", "app.js", "application/javascript; charset=utf-8"
+  ; "/math.js", "math.js", "application/javascript; charset=utf-8"
   ; "/examples.json", "examples.json", "application/json"
   ]
 ;;
 
+(* The one directory served by prefix: the vendored KaTeX assets (script,
+   stylesheet, fonts). Every path segment must be a plain filename over a
+   conservative alphabet, so "..", absolute paths, and hidden files cannot
+   appear; the extension whitelist bounds what is ever sent. *)
+let vendor_file (path : string) : (string * string) option =
+  let plain_segment s =
+    s <> ""
+    && s.[0] <> '.'
+    && String.for_all
+         (function
+           | 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '.' | '_' | '-' -> true
+           | _ -> false)
+         s
+  in
+  match String.split_on_char '/' path with
+  | "" :: "vendor" :: rest when rest <> [] && List.for_all plain_segment rest ->
+    let file = String.concat Filename.dir_sep ("vendor" :: rest) in
+    (match List.rev (String.split_on_char '.' path) with
+     | "css" :: _ -> Some (file, "text/css; charset=utf-8")
+     | "js" :: _ -> Some (file, "application/javascript; charset=utf-8")
+     | "woff2" :: _ -> Some (file, "font/woff2")
+     | _ -> None)
+  | _ -> None
+;;
+
 let serve_static (oc : out_channel) ~(static_dir : string) (path : string) : unit =
-  match List.find_opt (fun (route, _, _) -> route = path) static_routes with
+  let route =
+    match List.find_opt (fun (r, _, _) -> r = path) static_routes with
+    | Some (_, file, content_type) -> Some (file, content_type)
+    | None -> vendor_file path
+  in
+  match route with
   | None -> respond oc ~code:404 ~content_type:"text/plain" "not found\n"
-  | Some (_, file, content_type) ->
+  | Some (file, content_type) ->
     let full = Filename.concat static_dir file in
     (match In_channel.with_open_bin full In_channel.input_all with
      | body -> respond oc ~code:200 ~content_type body
@@ -158,6 +189,22 @@ let string_field (body : string) (key : string) : string option =
     (match Yojson.Safe.Util.member key json with
      | `String s -> Some s
      | _ -> None)
+;;
+
+(* Parse only, no proving: the typeset preview shown under the input while the
+   user types. Uses the same parser as everything else (no second grammar in
+   the browser); a parse failure is an answer, not a protocol error. *)
+let handle_preview (oc : out_channel) (body : string) : unit =
+  match string_field body "claim" with
+  | None ->
+    respond_json oc ~code:400 (json_error "expected a JSON object with a string 'claim'")
+  | Some claim ->
+    let reply =
+      match Parser.parse claim with
+      | Ok parsed -> `Assoc [ "latex", `String (Pretty.latex_of_claim parsed) ]
+      | Error msg -> `Assoc [ "error", `String msg ]
+    in
+    respond_json oc ~code:200 (Yojson.Safe.to_string reply)
 ;;
 
 let handle_prove (oc : out_channel) ~(sdp : Proof_result.sdp_solver) (body : string)
@@ -225,9 +272,10 @@ let handle_connection ~static_dir ~sdp (fd : Unix.file_descr) : unit =
      let req = read_request ic in
      match req.meth, req.path with
      | "POST", "/api/prove" -> handle_prove oc ~sdp req.body
+     | "POST", "/api/preview" -> handle_preview oc req.body
      | "POST", "/api/lean" -> handle_lean oc ~sdp req.body
      | "GET", path -> serve_static oc ~static_dir path
-     | _, ("/api/prove" | "/api/lean") ->
+     | _, ("/api/prove" | "/api/preview" | "/api/lean") ->
        respond_json oc ~code:405 (json_error "use POST")
      | _ -> respond oc ~code:405 ~content_type:"text/plain" "method not allowed\n"
    with
