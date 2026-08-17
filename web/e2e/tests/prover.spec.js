@@ -15,12 +15,17 @@ test.describe('proving', () => {
     await prove(page, 'a^2 + b^2 >= 2*a*b');
     await expect(page.locator('#status-banner')).toHaveText('PROVED');
     // The normalized target is shown...
-    await expect(page.locator('#target')).toContainText('≥ 0');
+    await expect(page.locator('#target')).toHaveAttribute('data-latex', /\\ge 0$/);
     // ...and the certificate is the real one: check the exact JSON the
     // checker verified, not just the pretty rendering.
     await page.click('#details-toggle');
     await expect(page.locator('#json-out')).toContainText('"poly": "a - b"');
-    await expect(page.locator('#certificate')).toContainText('(a − b)');
+    // The typeset block carries the LaTeX it renders in data-latex, so the
+    // assertion is about the mathematics, not KaTeX markup.
+    await expect(page.locator('#certificate')).toHaveAttribute(
+      'data-latex',
+      /\\left\(a - b\\right\)\^\{2\}/
+    );
   });
 
   test('no certificate found is never presented as false', async ({ page }) => {
@@ -41,11 +46,16 @@ test.describe('proving', () => {
     await prove(page, 'a^2 + b^2 >= 2 given a*b = 1');
     await expect(page.locator('#status-banner')).toHaveText('PROVED');
     await expect(page.locator('#assuming-block')).toBeVisible();
-    await expect(page.locator('#assuming')).toContainText('= 0');
-    // The certificate uses the hypothesis a*b - 1.
-    await expect(page.locator('#certificate')).toContainText('a·b − 1');
+    await expect(page.locator('#assuming [data-latex]').first()).toHaveAttribute(
+      'data-latex',
+      /ab - 1 = 0/
+    );
+    // The certificate uses the hypothesis a*b - 1, and its domain facts are
+    // restated under the identity.
+    await expect(page.locator('#certificate')).toHaveAttribute('data-latex', /ab - 1/);
+    await expect(page.locator('#domain-facts')).toBeVisible();
     // The reduction is explicitly relative to the domain.
-    await expect(page.locator('#target')).toContainText('on the domain above');
+    await expect(page.locator('#target-domain')).toBeVisible();
   });
 
   test('unparsable input is INVALID INPUT with the parser message', async ({
@@ -57,13 +67,26 @@ test.describe('proving', () => {
     await expect(page.locator('#cert-block')).toBeHidden();
   });
 
-  test('example chips fill the input without proving', async ({ page }) => {
+  test('example rows fill the input without proving', async ({ page }) => {
     await page.goto('/');
-    await page.click('.chip:has-text("Motzkin polynomial")');
+    await page.click('.example-row:has-text("Motzkin polynomial")');
     await expect(page.locator('#claim-input')).toHaveValue(
       'x^4*y^2 + x^2*y^4 + 1 >= 3*x^2*y^2'
     );
     await expect(page.locator('#result')).toBeHidden();
+  });
+});
+
+test.describe('input preview', () => {
+  test('the typed claim is typeset by the backend parser', async ({ page }) => {
+    await page.goto('/');
+    await page.fill('#claim-input', '(a^2 + b^2)/2 >= a*b');
+    await page.dispatchEvent('#claim-input', 'input');
+    await expect(page.locator('#preview')).toBeVisible();
+    await expect(page.locator('#preview-math')).toHaveAttribute(
+      'data-latex',
+      '\\frac{a^{2} + b^{2}}{2} \\ge ab'
+    );
   });
 });
 
@@ -74,12 +97,12 @@ test.describe('proof trace', () => {
     const steps = page.locator('#trace-list li');
     await expect(steps).toHaveCount(4); // parse, normalize, exact search, check
     await expect(steps.nth(0)).toContainText('Parse');
-    await expect(steps.nth(0).locator('.badge-trusted')).toBeVisible();
+    await expect(steps.nth(0).locator('.tag-trusted')).toBeVisible();
     await expect(steps.nth(2)).toContainText('Exact search');
-    await expect(steps.nth(2).locator('.badge-search')).toBeVisible();
+    await expect(steps.nth(2).locator('.tag-search')).toBeVisible();
     // The final stage is always the trusted check -- the only gate to PROVED.
     await expect(steps.nth(3)).toContainText('Exact check');
-    await expect(steps.nth(3).locator('.badge-trusted')).toBeVisible();
+    await expect(steps.nth(3).locator('.tag-trusted')).toBeVisible();
   });
 
   test('the trace of a failed search records the miss honestly', async ({ page }) => {
