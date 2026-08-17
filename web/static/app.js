@@ -104,6 +104,10 @@ function renderResult(d) {
   hidePanels();
   // Let the result take the page: fold the example list away (it reopens on
   // demand) and drop the input preview, which the Claim block now repeats.
+  // Cancel any debounced or in-flight preview so a fast proof is not followed
+  // by the preview popping back in.
+  clearTimeout(previewTimer);
+  previewSeq++;
   $('examples').open = false;
   $('preview').hidden = true;
 
