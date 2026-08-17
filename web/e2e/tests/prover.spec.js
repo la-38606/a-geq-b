@@ -35,7 +35,7 @@ test.describe('proving', () => {
     await expect(page.locator('#status-banner')).toHaveText('NO CERTIFICATE FOUND');
     await expect(page.locator('#status-note')).toContainText('not a disproof');
     await expect(page.locator('#nocert-explain')).toBeVisible();
-    await expect(page.locator('#nocert-explain')).toContainText('never concludes');
+    await expect(page.locator('#nocert-explain')).toContainText('can mean any of');
     // No certificate block for an unproved claim.
     await expect(page.locator('#cert-block')).toBeHidden();
   });

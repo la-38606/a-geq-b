@@ -23,10 +23,8 @@
     <h1>How A≥B works</h1>
     <p class="sub">
       A≥B proves a polynomial inequality by finding an explicit algebraic
-      certificate and re-verifying it with exact rational arithmetic. The search
-      may be heuristic or numerical; the acceptance never is. This page walks
-      through the pipeline, the trust boundary, and the code that implements
-      them.
+      certificate and re-verifying it with exact rational arithmetic. The
+      search may be heuristic or numerical; the acceptance never is.
     </p>
   </section>
 
@@ -71,8 +69,7 @@
       <div class="stage">Candidate</div>
       <div class="stage-what">
         <span data-latex="\left(a - b\right)^{2}"></span>:
-        an explicit claimed identity, nothing more. It carries no authority
-        yet, whatever search produced it.
+        an explicit claimed identity. It carries no authority yet.
       </div>
     </li>
     <li class="arrow">↓</li>
@@ -83,17 +80,15 @@
         compares normal forms: does
         <span data-latex="1\cdot\left(a - b\right)^{2}"></span>
         equal the target, term for term, with every weight
-        <span data-latex="\ge 0"></span>? No floats, no
-        tolerance, no “close enough”.
+        <span data-latex="\ge 0"></span>? All of it in exact arithmetic.
       </div>
     </li>
     <li class="arrow">↓</li>
     <li>
       <div class="stage verdict">PROVED</div>
       <div class="stage-what">
-        Only an accepted certificate licenses this word. Everything shown on
-        the prover page (the identity, the LaTeX, the Lean theorem) is read
-        off the verified certificate.
+        Only an accepted certificate licenses this word. Everything on the
+        prover page is read off the verified certificate.
       </div>
     </li>
   </ol>
@@ -129,22 +124,13 @@
     </div>
   </div>
 
-  <p>
-    “Untrusted” does not mean malicious; it means <em>allowed to be wrong</em>.
-    A bug anywhere on the search side (a bad heuristic, a numerical solver
-    gone astray, even a wrong reconstruction) produces a candidate the checker
-    rejects, and the run honestly reports that no certificate was found. A bug
-    can lose a proof; it cannot invent one.
-  </p>
-
   <h2>When exact search is not enough</h2>
   <p>
     Finding a sum-of-squares decomposition is, in general, a semidefinite
     feasibility problem: the Gram matrix has free entries, and some choice of
     them must be positive semidefinite. The exact search resolves only a little
     of that freedom (a bounded grid over at most two free entries). For the
-    rest, A≥B uses a numerical solver, without letting a float anywhere near
-    the verdict:
+    rest, A≥B uses a numerical solver:
   </p>
 
   <div class="flow">
@@ -159,40 +145,35 @@
 
   <p>
     The rounding tries a ladder of denominators; each attempt either yields a
-    certificate the checker accepts or is discarded. If none survives, the
-    answer is <em>no certificate found</em>, never “probably true”.
+    certificate the checker accepts or is discarded.
   </p>
 
   <h2>What the statuses mean</h2>
   <dl class="statuses">
     <dt class="st-proved">PROVED</dt>
-    <dd>A certificate passed the exact checker. The identity on screen is the
-        proof; you can re-verify it independently.</dd>
+    <dd>A certificate passed the exact checker; the identity on screen is the
+        proof.</dd>
     <dt class="st-nocert">NO CERTIFICATE FOUND</dt>
     <dd>The searches came up empty. <strong>Not a disproof</strong>: the claim
         may be false, may be true but not a sum of squares (Motzkin’s
-        polynomial), or may need a certificate beyond the implemented searches.
-        A≥B never concludes “false”.</dd>
+        polynomial), or may need a certificate beyond the implemented
+        searches.</dd>
     <dt class="st-invalid">INVALID INPUT</dt>
     <dd>The claim did not parse or reduce (e.g. division by a non-constant
         polynomial).</dd>
     <dt class="st-invalid">CERTIFICATE REJECTED</dt>
-    <dd>A proposed or imported certificate failed exact verification. The
-        boundary held.</dd>
+    <dd>A proposed or imported certificate failed exact verification.</dd>
   </dl>
 
   <h2 id="lean">The Lean layer</h2>
-  <p>Two separate things are machine-checked in Lean 4 / Mathlib, and it is
-     worth being precise about which is which:</p>
+  <p>Two separate things are machine-checked in Lean 4 / Mathlib:</p>
   <ul class="lean-facts">
     <li>
       <strong>The checking rule itself is verified.</strong>
       <code>lean/AeqbCheck.lean</code> re-expresses the checker over
       <code>MvPolynomial (Fin n) ℚ</code> and proves, axiom-clean and without
       <code>sorry</code>: if <code>checkSOS p cert = true</code> then
-      <var>p</var> evaluates nonnegatively at every real point. The trusted
-      core is not merely small and audited; its acceptance criterion is a
-      theorem.
+      <var>p</var> evaluates nonnegatively at every real point.
     </li>
     <li>
       <strong>Each proof can be exported as its own Lean theorem.</strong>
@@ -200,7 +181,7 @@
       self-contained file: the sum-of-squares identity is closed by
       <code>ring</code>, nonnegativity by <code>positivity</code>. Lean’s
       kernel checks it when you compile the file; A≥B itself does not run
-      Lean, and the interface never claims it did.
+      Lean.
     </li>
   </ul>
 
@@ -273,9 +254,8 @@
       <span class="math-inline"><var>x</var><sup>2</sup></span> has one
       representation no matter how many variables are in scope, and polynomials
       map canonical monomials to nonzero coefficients only. Every operation
-      preserves this normal form, which is what lets the checker decide the
-      certificate identity by structural equality; the entire soundness
-      argument rests on that comparison being exact.
+      preserves this normal form, which lets the checker decide the
+      certificate identity by structural equality.
     </p>
   </details>
 
@@ -287,11 +267,6 @@
 
 <script src="/vendor/katex/katex.min.js"></script>
 <script src="/math.js"></script>
-
-<footer>
-  Proof search may be heuristic or numerical; only the exact checker can say
-  PROVED.
-</footer>
 
 </body>
 </html>

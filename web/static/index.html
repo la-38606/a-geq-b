@@ -65,8 +65,6 @@
         <li>a certificate exists but lies beyond the searches this prover
             implements.</li>
       </ul>
-      <p>A≥B never concludes “false”; it only ever reports that a
-         verified proof was or was not found.</p>
     </div>
 
     <div id="warnings"></div>
@@ -114,14 +112,13 @@
         <tbody></tbody>
       </table>
       <p class="note">
-        Stages tagged <span class="tag tag-search">search</span> are
-        untrusted: they may fail, or propose a bad candidate. Only the
-        <span class="tag tag-trusted">trusted</span> exact check accepts a
-        certificate, so a bug in search can lose a proof but never invent one.
+        <span class="tag tag-search">search</span> stages may fail or propose
+        a bad candidate; only the <span class="tag tag-trusted">trusted</span>
+        exact check accepts a certificate.
       </p>
       <p class="note" id="sdp-note" hidden>
-        The floating-point matrix from the numerical solver only guides the
-        search; the certificate the checker accepted is exact.
+        The numerical matrix only guides the search; the accepted certificate
+        is exact.
       </p>
     </section>
 
@@ -157,8 +154,7 @@
 </main>
 
 <footer>
-  Proof search may be heuristic or numerical; only the exact checker can say
-  PROVED. <a href="/how-it-works">How A≥B works</a>
+  <a href="/how-it-works">How A≥B works</a>
 </footer>
 
 <script src="/vendor/katex/katex.min.js"></script>

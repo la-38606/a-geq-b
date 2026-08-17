@@ -38,10 +38,10 @@ function statusNote(d) {
 
 function certNote(d) {
   if (d.certificate.kind === 'sos') {
-    return 'The right-hand side is a sum of squares with nonnegative rational ' +
-           'coefficients; the exact checker verified that it equals the target.';
+    return 'Each term on the right is nonnegative; the exact checker verified ' +
+           'the identity.';
   }
-  return 'On the stated domain every term on the right is nonnegative or zero; ' +
+  return 'On the stated domain each term on the right is nonnegative or zero; ' +
          'the exact checker verified the identity and that each scaled ' +
          'polynomial is a declared assumption.';
 }
@@ -262,10 +262,8 @@ async function exportLean() {
     if (data.lean) {
       $('lean-out').textContent = data.lean;
       $('lean-note').textContent =
-        'Generated from the verified certificate; the sum-of-squares identity is ' +
-        'closed by `ring` and nonnegativity by `positivity`. Lean was not run ' +
-        'here. Compile this file (with Mathlib) to have Lean’s kernel check ' +
-        'the theorem.';
+        'Generated from the verified certificate. Lean was not run here; ' +
+        'compile the file with Mathlib to have Lean’s kernel check it.';
     } else {
       $('lean-out').textContent = '-- ' + (data.error || 'export failed');
       $('lean-note').textContent = '';
