@@ -37,7 +37,8 @@ echo "wrote demo/aeqb-demo.webm"
 # H.264, so an mp4 is best-effort.
 if command -v ffmpeg >/dev/null 2>&1; then
   if ffmpeg -y -loglevel error -i demo/aeqb-demo.webm \
-       -c:v libx264 -pix_fmt yuv420p -crf 20 demo/aeqb-demo.mp4; then
+       -c:v libx264 -pix_fmt yuv420p -crf 20 -movflags +faststart \
+       demo/aeqb-demo.mp4; then
     echo "wrote demo/aeqb-demo.mp4"
   else
     echo "mp4 conversion failed; the webm is intact" >&2
