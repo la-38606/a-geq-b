@@ -7,8 +7,8 @@
 
     {b Implemented so far:} an exact SOS solver based on the Gram matrix and a
     rational LDLᵀ factorisation (see below).  It tries a sequence of monomial
-    bases — the degree-2 basis [{1, x_i}], even-power / product substitution
-    bases, and the full degree-[d] basis for homogeneous targets — and resolves
+    bases (the degree-2 basis [{1, x_i}], even-power / product substitution
+    bases, and the full degree-[d] basis for homogeneous targets) and resolves
     an under-determined Gram (an SDP) by a bounded rational grid search over up
     to two free entries.  Targets needing a wider multi-variable semidefinite
     search are still future work.  This module also provides the hand-written
@@ -16,7 +16,7 @@
 
 type result =
   | Proved of Certificate.t
-  | No_certificate_found (** not disproof — just "this prover found nothing" *)
+  | No_certificate_found (** not disproof, just "this prover found nothing" *)
 
 type constrained_strategy =
   | Constant_multipliers
@@ -392,9 +392,10 @@ let prove (p : Polynomial.t) : result =
 (* squares, which we hand to the unconstrained {!prove}.  The constants    *)
 (* are searched over a bounded grid, with at most two hypotheses active at *)
 (* once (plus a uniform choice across all nonnegative hypotheses, which    *)
-(* catches the common symmetric case).  A polynomial (non-constant)        *)
-(* multiplier — needed e.g. for [a^3 >= b^3 given a = b] — is future work. *)
-(* Every assembled certificate is re-checked by the trusted {!Checker}.    *)
+(* catches the common symmetric case).  Polynomial multipliers on the      *)
+(* equalities (e.g. for [a^3 >= b^3 given a = b]) are found separately, by *)
+(* reduction, below.  Every assembled certificate is re-checked by the     *)
+(* trusted {!Checker}.                                                     *)
 (* ---------------------------------------------------------------------- *)
 
 let nonneg_muls : Rational.t list =
@@ -502,7 +503,7 @@ let prove_by_constants ~(hypotheses : Constrained.hypothesis list) (target : Pol
 (* division: target = q*h + r, and q is exactly the multiplier we want. We *)
 (* then only need the remainder r to be provable (SOS, possibly using the  *)
 (* nonnegative hypotheses).  Division is under {!Monomial.compare}, which  *)
-(* is the lexicographic order — a genuine (multiplication-compatible,      *)
+(* is the lexicographic order, a genuine (multiplication-compatible,       *)
 (* well-founded) monomial order, so the reduction terminates.  The trusted *)
 (* checker still re-verifies everything, so a bug here only misses proofs. *)
 

@@ -85,7 +85,7 @@ let expand_constrained (cert : Constrained.t) : Polynomial.t =
 
     - every sum-of-squares part ([base] and each {!Constrained.Times_nonneg} or
       {!Constrained.Times_product} multiplier) has only nonnegative coefficients;
-    - every scaled polynomial is a declared hypothesis of the matching kind — a
+    - every scaled polynomial is a declared hypothesis of the matching kind; a
       [Nonneg] hypothesis for a [Times_nonneg] term, a [Zero] hypothesis for a
       [Times_zero] term, and every factor of a [Times_product] term a [Nonneg]
       hypothesis (all by structural polynomial equality); and

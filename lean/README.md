@@ -1,4 +1,4 @@
-# A≥B — formally verified checker (Lean 4)
+# A≥B: formally verified checker (Lean 4)
 
 This directory upgrades A≥B's trusted core from *small and audited* to
 *machine-verified*: a reimplementation of the certificate checker in **Lean 4 /
@@ -7,7 +7,7 @@ Mathlib**, with a **proved soundness theorem**.
 The whole system reports `PROVED` only when the trusted OCaml checker
 ([`lib/checker.ml`](../lib/checker.ml)) accepts a certificate. That checker is
 tiny and audited. Here we re-express the same check over Mathlib's
-`MvPolynomial (Fin n) ℚ` and prove — in the Lean kernel — that it can never
+`MvPolynomial (Fin n) ℚ` and prove, in the Lean kernel, that it can never
 accept a certificate for a polynomial that is negative somewhere.
 
 ## The theorem
@@ -28,7 +28,7 @@ theorem checkSOS_sound (p : MvPolynomial (Fin n) ℚ) (cert)
     0 ≤ aeval x p
 ```
 
-“If the checker accepts, the target is nonnegative at every real point” — exactly
+“If the checker accepts, the target is nonnegative at every real point”: exactly
 the guarantee `Checker.check_sos` is trusted to provide. The proof mirrors the
 informal one: a nonnegative-coefficient sum of squares is `≥ 0`
 (`sq_nonneg`, `mul_nonneg`, `List.sum_nonneg`), once the checker has established
@@ -41,7 +41,7 @@ The proof is complete and axiom-clean:
 -- 'checkSOS_sound' depends on axioms: [propext, Classical.choice, Quot.sound]
 ```
 
-i.e. only the three standard Mathlib axioms — no `sorry`.
+i.e. only the three standard Mathlib axioms, with no `sorry`.
 
 ## Emitting checkable Lean proofs
 
@@ -60,13 +60,13 @@ theorem aeqb_sq_diff (a b : ℝ) : (0 : ℝ) ≤ a^2 - 2*a*b + b^2 := by
   positivity
 ```
 
-The proof rewrites `p` into its sum-of-squares form by `ring` — an identity that
-holds *because* the checker already verified `p = ∑ cᵢ qᵢ²` — and closes
+The proof rewrites `p` into its sum-of-squares form by `ring` (an identity that
+holds *because* the checker already verified `p = ∑ cᵢ qᵢ²`) and closes
 `0 ≤ ∑ cᵢ qᵢ²` by `positivity`. This is untrusted OUTPUT: a bogus certificate
 would yield a Lean file that fails to compile, never a false theorem.
 
 [`Proofs.lean`](Proofs.lean) collects such proofs for a spread of inequalities
-(1–3 variables, degree 2 and 4, rational coefficients); `lake build` has Lean's
+(1 to 3 variables, degree 2 and 4, rational coefficients); `lake build` has Lean's
 kernel check every one. Regenerate it straight from the prover with
 [`regen.sh`](regen.sh). Each theorem is thus machine-checked twice: the exact
 rational identity in OCaml, then `ring` / `positivity` in Lean.

@@ -238,7 +238,7 @@ type parsed =
   ; certificate : t
   }
 
-(** Load from a parsed JSON value.  Returns [Error msg] — never raises — on any
+(** Load from a parsed JSON value.  Returns [Error msg] (never raises) on any
     malformation.  Validates {i shape} only; the caller must still run the
     trusted {!Checker.check_constrained} on the result. *)
 let of_json (json : Yojson.Safe.t) : (parsed, string) result =

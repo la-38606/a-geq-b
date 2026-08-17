@@ -26,7 +26,7 @@
     Precedence (tightest first): parentheses, powers, multiplication/division,
     addition/subtraction, then the relation.  Unary minus binds a [factor]
     (so [-a^2] parses as [-(a^2)]).  Implicit multiplication (["ab"]) is out of
-    scope for v1 — write ["a*b"].  Division between expressions (["a/(b+c)"]) is
+    scope for v1; write ["a*b"].  Division between expressions (["a/(b+c)"]) is
     allowed and is cleared of denominators by the {!Normalizer}; a bare integer
     fraction like ["1/2"] is still read as a single rational literal.
 

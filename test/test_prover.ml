@@ -124,7 +124,7 @@ let provable_constrained_cases =
   ]
 ;;
 
-(* Beyond the search, so must return No_constrained_certificate — never a false
+(* Beyond the search, so must return No_constrained_certificate, never a false
    proof: a claim a hypothesis does not support, and a triple product (only pairs
    of hypotheses are tried). *)
 let unprovable_constrained_cases =

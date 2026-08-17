@@ -59,7 +59,7 @@ let vars_of_claim (c : Ast.claim) : context =
 (* A rational function is a pair (numerator, denominator) of polynomials, with a
    nonzero denominator. Expressions are evaluated to rational functions so that
    division is supported; a claim then clears denominators (see below).
-   Fractions are combined but not reduced to lowest terms — denominators grow,
+   Fractions are combined but not reduced to lowest terms; denominators grow,
    but the result is exact and that is all the checker needs. *)
 
 (* Cap intermediate polynomial size on three axes so exact arithmetic cannot be

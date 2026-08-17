@@ -13,7 +13,7 @@
 
     - the constant monomial (all exponents zero) is the empty list [[]];
     - [a^2] is [[2]] whether the ambient polynomial has 1, 3 or 10 variables;
-    - [a * c] (with order a,b,c) is [[1; 0; 1]] — interior zeros are kept, only
+    - [a * c] (with order a,b,c) is [[1; 0; 1]] ; interior zeros are kept, only
       trailing zeros are dropped.
 
     Every value produced by this module is canonical.  Exponents are always

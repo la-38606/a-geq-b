@@ -11,7 +11,7 @@ A machine-verified reimplementation of A≥B's trusted checker (`lib/checker.ml`
 
 `checkSOS p cert` decides whether `cert` is a valid sum-of-squares certificate
 for `p ≥ 0`, over the rationals and exactly.  `checkSOS_sound` proves that a
-`true` answer entails that `p` is nonnegative at *every* real point — precisely
+`true` answer entails that `p` is nonnegative at *every* real point, precisely
 the guarantee the OCaml checker is trusted to provide, here discharged by the
 Lean kernel.
 -/

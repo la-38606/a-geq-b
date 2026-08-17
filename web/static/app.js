@@ -93,7 +93,7 @@ function certNote(d) {
   }
   return 'On the domain cut out by the assumptions: every square is nonnegative, ' +
          'every multiplier of a nonnegative hypothesis is a sum of squares, and ' +
-         'multiples of vanishing hypotheses are zero — so the right-hand side is ' +
+         'multiples of vanishing hypotheses are zero, so the right-hand side is ' +
          'nonnegative there. The exact checker verified the identity and that ' +
          'every scaled polynomial is a declared hypothesis.';
 }
@@ -224,7 +224,7 @@ async function prove(claim) {
       $('claim-block').hidden = false;
     }
   } catch {
-    renderServerError('Could not reach the local server — is a-geq-b-web still running?');
+    renderServerError('Could not reach the local server. Is a-geq-b-web still running?');
   } finally {
     button.disabled = false;
     button.textContent = 'Prove';
@@ -246,7 +246,7 @@ async function exportLean() {
       $('lean-note').textContent =
         'Generated from the verified certificate; the sum-of-squares identity is ' +
         'closed by `ring` and nonnegativity by `positivity`. Lean was not run ' +
-        'here — compile this file (with Mathlib) to have Lean’s kernel check ' +
+        'here. Compile this file (with Mathlib) to have Lean’s kernel check ' +
         'the theorem.';
     } else {
       $('lean-out').textContent = '-- ' + (data.error || 'export failed');
@@ -255,7 +255,7 @@ async function exportLean() {
     panel.hidden = false;
     $('lean-button').setAttribute('aria-expanded', 'true');
   } catch {
-    renderServerError('Could not reach the local server — is a-geq-b-web still running?');
+    renderServerError('Could not reach the local server. Is a-geq-b-web still running?');
   }
 }
 
@@ -272,7 +272,7 @@ async function loadExamples() {
       b.type = 'button';
       b.className = 'chip';
       b.textContent = ex.label;
-      b.title = ex.claim + (ex.note ? ' — ' + ex.note : '');
+      b.title = ex.claim + (ex.note ? ' (' + ex.note + ')' : '');
       b.addEventListener('click', () => {
         $('claim-input').value = ex.claim;
         $('claim-input').focus();

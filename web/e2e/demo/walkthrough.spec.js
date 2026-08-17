@@ -74,7 +74,7 @@ test('walkthrough', async ({ page }) => {
 
   // Scene 6 -- a target the exact search cannot close: the numerical SDP
   // route, live, with exact reconstruction in the trace.
-  await page.click('.chip:has-text("Four-variable AM–GM")');
+  await page.click('.chip:has-text("Four-variable AM-GM")');
   await beat(page, 700);
   await proveAndWait(page, 'PROVED');
   await smoothScrollTo(page, '#cert-block');

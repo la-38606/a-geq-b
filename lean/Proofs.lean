@@ -1,5 +1,5 @@
 /-
-  A>=B — machine-generated Lean proofs.  DO NOT EDIT BY HAND.
+  A>=B machine-generated Lean proofs.  DO NOT EDIT BY HAND.
 
   Each theorem is the verbatim output of `a-geq-b lean "<inequality>" <name>`:
   the untrusted prover finds an SOS certificate, the trusted OCaml checker

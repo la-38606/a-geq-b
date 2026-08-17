@@ -17,7 +17,7 @@ dune build bin/main.exe
 {
   cat <<'HEADER'
 /-
-  A>=B — machine-generated Lean proofs.  DO NOT EDIT BY HAND.
+  A>=B machine-generated Lean proofs.  DO NOT EDIT BY HAND.
 
   Each theorem is the verbatim output of `a-geq-b lean "<inequality>" <name>`:
   the untrusted prover finds an SOS certificate, the trusted OCaml checker
@@ -30,7 +30,7 @@ dune build bin/main.exe
 import Mathlib
 HEADER
   echo
-  # name|inequality — one theorem each.  Redirect dune's stdin so it does not
+  # name|inequality, one theorem each.  Redirect dune's stdin so it does not
   # consume the here-doc that feeds the loop.
   while IFS='|' read -r name ineq; do
     [ -z "$name" ] && continue

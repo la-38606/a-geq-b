@@ -1,6 +1,6 @@
 (** Tests for the trusted constrained (Positivstellensatz) checker.
 
-    Accept cases exercise the three certificate ingredients — a [Nonneg]
+    Accept cases exercise the three certificate ingredients: a [Nonneg]
     hypothesis scaled by an SOS, a [Zero] hypothesis scaled by an arbitrary
     polynomial, and an SOS [base]. Reject cases corrupt them in each way the
     design must catch: a negative multiplier coefficient, a scaled polynomial
@@ -265,7 +265,7 @@ let test_any_dispatch () =
 (* --- parsing side conditions end-to-end --- *)
 
 (* Parse [src], normalize it, and check [cert] against the resulting target and
-   hypotheses — exercising Parser -> Normalizer -> Constrained -> Checker. *)
+   hypotheses, exercising Parser -> Normalizer -> Constrained -> Checker. *)
 let parsed_checks src cert =
   match Parser.parse src with
   | Error m -> Alcotest.failf "parse %S failed: %s" src m

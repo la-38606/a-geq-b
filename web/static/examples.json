@@ -32,14 +32,14 @@
       "note": "polynomial multiplier found by reduction modulo a - b"
     },
     {
-      "label": "Four-variable AM–GM",
+      "label": "Four-variable AM-GM",
       "claim": "a^4 + b^4 + c^4 + d^4 >= 4*a*b*c*d",
       "note": "beyond the exact search; routed through the numerical SDP"
     },
     {
       "label": "Motzkin polynomial",
       "claim": "x^4*y^2 + x^2*y^4 + 1 >= 3*x^2*y^2",
-      "note": "true, but provably not a sum of squares — expect NO CERTIFICATE FOUND"
+      "note": "true, but provably not a sum of squares; expect NO CERTIFICATE FOUND"
     }
   ]
 }

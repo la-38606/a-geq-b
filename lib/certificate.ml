@@ -7,7 +7,7 @@
 
     This module only holds the {i data} and knows how to render / serialise it.
     Deciding whether the claim is actually true is the job of the {b trusted}
-    {!Checker} — never trust a certificate until the checker has accepted it. *)
+    {!Checker}; never trust a certificate until the checker has accepted it. *)
 
 (** One summand: represents [coeff * poly^2]. *)
 type term =
@@ -80,7 +80,7 @@ type parsed =
   }
 
 (** Load a certificate from a parsed JSON value (see [examples/] for the
-    format).  Returns [Error msg] — never raises — for any malformation:
+    format).  Returns [Error msg] (never raises) for any malformation:
     missing/typed-wrong fields, unparsable claim or polynomial, a malformed
     rational coefficient, or a variable outside the declared context.  Note this
     validates {i shape}, not the inequality: the caller must still run the
